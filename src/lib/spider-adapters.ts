@@ -243,7 +243,7 @@ class GuluClient {
   }
   private async call(group: number, action: number, payload: Buffer): Promise<Buffer> {
     const timestamp = Date.now();
-    const inner = Buffer.concat([pbVar(1,timestamp),pbVar(2,group),pbVar(3,action),pbBytes(4,this.session),pbBytes(5,Buffer.alloc(0)),pbBytes(6,payload),pbVar(7,timestamp)]);
+    const inner = Buffer.concat([pbVar(1,timestamp),pbVar(2,group),pbVar(3,action),pbBytes(4,this.deviceId),pbBytes(5,Buffer.alloc(0)),pbBytes(6,payload),pbVar(7,timestamp)]);
     const compressed = deflateRawSync(inner,{level:6});
     const iv = randomBytes(12);
     const cipher = createCipheriv('aes-256-gcm',this.key,iv);
