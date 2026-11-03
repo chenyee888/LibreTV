@@ -214,13 +214,7 @@ class AppDramaClient {
       let playUrl = path;
       if (!/\.(mp4|m3u8|flv|mkv|avi|ts|mov|mpd|m4a|wmv)(\?.*)?$/i.test(path)) {
         const token = Buffer.from(JSON.stringify({ vodPlayFrom: str(first(video, 9)), playUrl: path })).toString('base64');
-        try {
-          const resolved = await this.resolvePlay(token);
-          playUrl = resolved.url;
-          if (resolved.headers && Object.keys(resolved.headers).length) {
-            playUrl = toProxyUrl(playUrl, resolved.headers);
-          }
-        } catch { continue; }
+        playUrl = `/api/spider-play?source=spider_orange&payload=${encodeURIComponent(token)}`;
       }
       const list = groups.get(source) || []; list.push(playUrl); groups.set(source, list);
     }
@@ -307,6 +301,22 @@ class GuluClient {
     for(const f of data.length?pbDecode(data):[]){if(f.wire!==2)continue;const b=bytes(f);const nested=pbDecode(b);const items=nested.filter(x=>x.no===66&&x.wire===2);if(items.length){for(const item of items)parseOne(bytes(item));}else if(nested.some(x=>x.no===2&&x.wire===0))parseOne(b);else for(const item of nested.filter(x=>x.no===3&&x.wire===2))parseOne(bytes(item));}
     return out.slice(0,100);
   }
+  async resolvePlay(token: string): Promise<string> {
+    const prefix = Object.keys(this.templates).find(k => token.startsWith(k));
+    if (!prefix) throw new Error('咕噜没有匹配到播放解析器');
+    let value = token;
+    if ((value.startsWith('CO4K_') || value.startsWith('rose_')) && value.includes('*') && !value.includes('%2B')) {
+      value = value.replace(' ', '*');
+    }
+    const encoded = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
+    const parseUrl = this.templates[prefix] + encoded;
+    const verdict = await checkUpstreamAllowed(parseUrl);
+    if (!verdict.ok) throw new Error(verdict.reason);
+    const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+    const url = JSON.parse(text).url || text.match(/"url"\\s*:\\s*"([^"]+)"/)?.[1] || '';
+    if (!url) throw new Error('咕噜解析器没有返回播放地址');
+    return toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+  }
   async detail(id:string):Promise<VideoDetail>{
     const data=await this.call(3,62,Buffer.concat([pbVar(1,BigInt(id)),pbBytes(4,'APP_PLATFORM_ANDROID_TV'),pbVar(5,0)]));
     const fs=pbDecode(data);const title=str(fs.find(x=>x.no===5));const groups=new Map<string,string[]>();
@@ -317,27 +327,13 @@ class GuluClient {
         let url = str(e.find(x => x.no === 3));
         if (!url) continue;
         if (/^https?:\/\//i.test(url)) {
-          url = upgradeGuluQuality(url);
+          url = toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
         } else {
-          const prefix = Object.keys(this.templates).find(k => url.startsWith(k));
-          if (!prefix) continue;
-          try {
-            let token = url;
-            if ((token.startsWith('CO4K_') || token.startsWith('rose_')) && token.includes('*') && !token.includes('%2B')) {
-              token = token.replace(' ', '*');
-            }
-            const encoded = encodeURIComponent(token).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-            const parseUrl = this.templates[prefix] + encoded;
-            const verdict = await checkUpstreamAllowed(parseUrl);
-            if (!verdict.ok) throw new Error(verdict.reason);
-            const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
-            url = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
-            if (url) url = upgradeGuluQuality(url);
-          } catch { url = ''; }
+          url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(url)}`;
         }
         if (url) {
           const list = groups.get(source) || [];
-          list.push(toProxyUrl(url, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' }));
+          list.push(url);
           groups.set(source, list);
         }
       }
@@ -352,6 +348,15 @@ export async function spiderSearch(source:SourceConfig,keyword:string,page=1):Pr
   const list=source.adapter==='gulu'?await (await GuluClient.create()).search(keyword,page):await (await AppDramaClient.create(source)).search(keyword,page);
   return list.map(item=>({...item,sourceKey:source.key,sourceName:source.name,sourceUrl:source.url}));
 }
+export async function spiderResolvePlay(source: SourceConfig, token: string): Promise<string> {
+  if (source.adapter === 'gulu') return await (await GuluClient.create()).resolvePlay(token);
+  if (source.adapter === 'appdrama') {
+    const resolved = await (await AppDramaClient.create(source)).resolvePlay(token);
+    return toProxyUrl(resolved.url, resolved.headers || {});
+  }
+  throw new Error('不支持的 Spider 播放协议');
+}
+
 export async function spiderDetail(source:SourceConfig,id:string):Promise<VideoDetail>{
   const detail=source.adapter==='gulu'?await (await GuluClient.create()).detail(id):await (await AppDramaClient.create(source)).detail(id);
   detail.videoInfo.sourceKey=source.key;detail.videoInfo.sourceName=source.name;detail.videoInfo.sourceUrl=source.url;
