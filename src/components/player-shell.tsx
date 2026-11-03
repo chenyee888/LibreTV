@@ -217,7 +217,12 @@ export function PlayerShell({
       abrEwmaDefaultEstimate: 500_000,
       appendErrorMaxRetry: 5,
       // 组合 loader：广告过滤（blockAd 随设置）+ 片段缓存命中（cacheEnabled）
-      xhrSetup: p.headers && Object.keys(p.headers).length ? (xhr) => {\n        for (const [name, value] of Object.entries(p.headers || {})) {\n          try { xhr.setRequestHeader(name, value); } catch { /* browser forbids certain headers */ }\n        }\n      } : undefined,\n      loader: createHlsLoader(Hls, { blockAd: p.adFilter }) as unknown as HlsConfig['loader'],
+      xhrSetup: p.headers && Object.keys(p.headers).length ? (xhr) => {
+        for (const [name, value] of Object.entries(p.headers || {})) {
+          try { xhr.setRequestHeader(name, value); } catch { /* browser forbids certain headers */ }
+        }
+      } : undefined,
+      loader: createHlsLoader(Hls, { blockAd: p.adFilter }) as unknown as HlsConfig['loader'],
     };
   };
 
