@@ -5,6 +5,7 @@ import { fetchUpstream, getCache, setCache } from '@/lib/fetch-utils';
 import { checkUpstreamAllowed } from '@/lib/ssrf';
 import type { SourceConfig, VideoDetail } from '@/lib/types';
 import { spiderDetail } from '@/lib/spider-adapters';
+import { getEnvSources } from '@/lib/env-sources';
 
 export const runtime = 'nodejs';
 
@@ -51,7 +52,9 @@ export async function GET(req: Request) {
       const spiderKey = `spider-detail:${source.key}:${id}`;
       const cachedSpider = getCache<VideoDetail>(spiderKey);
       if (cachedSpider) return NextResponse.json(cachedSpider);
-      const detail = await spiderDetail(source, id);
+      const configured = getEnvSources().find(item => item.key === source.key && item.adapter === source.adapter);
+      if (!configured) return NextResponse.json({ error: 'Spider 源未在服务器端启用' }, { status: 400 });
+      const detail = await spiderDetail(configured, id);
       setCache(spiderKey, detail, DETAIL_CACHE_TTL);
       return NextResponse.json(detail);
     } catch (err) {
