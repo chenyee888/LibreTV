@@ -162,7 +162,7 @@ class AppDramaClient {
     const data = await this.api('/api/proto/v5/drama/search', { searchKeys: keyword, page: String(page), pagesize: '21' });
     const pageFields = pbDecode(data);
     return pageFields.filter(f => f.no === 1).map(f => {
-      const b = bytes(f.value && typeof f.value !== 'bigint' ? f.value : undefined);
+      const b = bytes(f);
       const cover = bytes(first(b, 2)?.value && typeof first(b, 2)?.value !== 'bigint' ? first(b, 2) : undefined);
       return {
         sourceKey: '', sourceName: '', vodId: String(num(first(b, 3))),
@@ -215,7 +215,7 @@ class AppDramaClient {
 
 const GULU_GATEWAY = 'http://103.45.132.22:19987/app/bn/v2';
 class GuluClient {
-  private session = ''; private key = Buffer.alloc(0); private templates: Record<string,string> = {};
+  private session = ''; private key = Buffer.alloc(0); private templates: Record<string,string> = {}; private deviceId = randomBytes(8).toString('hex');
   private constructor() {}
   static async create(): Promise<GuluClient> {
     const c = new GuluClient(); await c.handshake(); await c.boot(); return c;
@@ -225,7 +225,7 @@ class GuluClient {
     const pub = ecdh.getPublicKey(undefined, 'uncompressed');
     const key = randomBytes(32).toString('hex'); const iv = randomBytes(16);
     const init = Buffer.concat([pbBytes(1, pub), pbBytes(2, '1.0.0'), pbBytes(3, Buffer.concat([pbVar(1,1),pbVar(2,1),pbVar(3,1)]))]);
-    const encrypted = aesEncrypt(deflateRawSync(init, { level: 5 }), key, 'cbc', iv.toString('binary'));
+    const encrypted = aesEncrypt(deflateRawSync(init, { level: 5 }), key, 'cbc', iv);
     const body = Buffer.concat([iv, encrypted]).toString('base64');
     const res = await fetch(GULU_GATEWAY, { method:'POST', headers:{
       'Content-Type':'text/plain','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
@@ -263,8 +263,8 @@ class GuluClient {
     return bytes(pbDecode(decoded).find(x=>x.no===4));
   }
   private async boot(): Promise<void> {
-    const app=Buffer.concat([pbBytes(1,'咕噜咕噜'),pbBytes(2,'2.1.2'),pbBytes(3,'com.jymqfh.xee'),pbBytes(4,randomBytes(8).toString('hex')),pbBytes(5,'212')]);
-    const device=Buffer.concat([pbBytes(1,randomBytes(8).toString('hex')),pbVar(2,0),pbBytes(3,'11'),pbBytes(4,'Pixel 4'),pbBytes(5,'google/redfin/redfin:11/RQ3A.211001.001'),pbBytes(6,'google'),pbBytes(7,'redfin'),pbVar(8,0),pbBytes(9,'unknown'),pbBytes(10,'unknown'),pbVar(11,0),pbVar(12,30)]);
+    const app=Buffer.concat([pbBytes(1,'咕噜咕噜'),pbBytes(2,'2.1.2'),pbBytes(3,'com.jymqfh.xee'),pbBytes(4,this.deviceId),pbBytes(5,'212')]);
+    const device=Buffer.concat([pbBytes(1,this.deviceId),pbVar(2,0),pbBytes(3,'11'),pbBytes(4,'Pixel 4'),pbBytes(5,'google/redfin/redfin:11/RQ3A.211001.001'),pbBytes(6,'google'),pbBytes(7,'redfin'),pbVar(8,0),pbBytes(9,'unknown'),pbBytes(10,'unknown'),pbVar(11,0),pbVar(12,30)]);
     const payload=Buffer.concat([pbBytes(1,'v1'),pbBytes(2,'Android 11'),pbBytes(3,'gulu'),pbBytes(4,app),pbBytes(5,device)]);
     const data=await this.call(1,0,payload);
     for(const item of fields(data,7)){const x=pbDecode(bytes(item));const name=str(x.find(y=>y.no===2));const url=str(x.find(y=>y.no===3));if(name&&url)this.templates[name]=url;}
@@ -279,7 +279,7 @@ class GuluClient {
     const out:SearchResultItem[]=[];
     const parseOne=(b:Buffer)=>{
       const fs=pbDecode(b);const id=String(num(fs.find(x=>x.no===1)));const name=str(fs.find(x=>x.no===3));
-      if(id&&name)out.push({sourceKey:'',sourceName:'',vodId:id,name,pic:str(fs.find(x=>x.no===6)),remarks:str(fs.find(x=>x.no===11))||str(fs.find(x=>x.no===9)),year:String(num(fs.find(x=>x.no===2))||'')});
+      if(id&&name)out.push({sourceKey:'',sourceName:'',vodId:id,name,pic:str(fs.find(x=>x.no===6)),remarks:str(fs.find(x=>x.no===11))||str(fs.find(x=>x.no===9)),typeName:str(fs.find(x=>x.no===9))});
     };
     for(const f of data.length?pbDecode(data):[]){if(f.wire!==2)continue;const b=bytes(f);const nested=pbDecode(b);const items=nested.filter(x=>x.no===66&&x.wire===2);if(items.length){for(const item of items)parseOne(bytes(item));}else if(nested.some(x=>x.no===2&&x.wire===0))parseOne(b);else for(const item of nested.filter(x=>x.no===3&&x.wire===2))parseOne(bytes(item));}
     return out.slice(0,100);
