@@ -383,7 +383,7 @@ class GuluClient {
     const parserLabel = prefix ? GULU_PREFIX_LABELS[prefix] : selectedLine;
     const template = this.templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel];
     if (!template) throw new Error(`咕噜线路 ${selectedLine}（解析器 ${parserLabel}）缺少模板`);
-    let value = token;
+    const value = token;
     const encodedValue = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
     const parseUrl = template + encodedValue;
     const verdict = await checkUpstreamAllowed(parseUrl);
