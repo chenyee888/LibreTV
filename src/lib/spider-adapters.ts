@@ -313,7 +313,7 @@ class GuluClient {
     const verdict = await checkUpstreamAllowed(parseUrl);
     if (!verdict.ok) throw new Error(verdict.reason);
     const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
-    const url = JSON.parse(text).url || text.match(/"url"\\s*:\\s*"([^"]+)"/)?.[1] || '';
+    const url = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
     if (!url) throw new Error('咕噜解析器没有返回播放地址');
     return toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
   }
