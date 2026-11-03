@@ -5,6 +5,7 @@ import { fetchUpstream, getCache, setCache } from '@/lib/fetch-utils';
 import { checkUpstreamAllowed } from '@/lib/ssrf';
 import type { SearchResponse, SearchStreamEvent, SourceConfig, SourceSearchOutcome } from '@/lib/types';
 import { spiderSearch } from '@/lib/spider-adapters';
+import { getEnvSources } from '@/lib/env-sources';
 
 export const runtime = 'nodejs';
 
@@ -69,7 +70,9 @@ async function searchSource(source: SourceConfig, wd: string): Promise<SourceSea
         (source.adapter === 'appdrama' && source.key !== 'spider_orange')) {
       return finish({ sourceKey: source.key, ok: false, list: [], error: '不允许的 Spider 源配置' });
     }
-    const list = await spiderSearch(source, wd, 1);
+    const configured = getEnvSources().find(item => item.key === source.key && item.adapter === source.adapter);
+    if (!configured) return finish({ sourceKey: source.key, ok: false, list: [], error: 'Spider 源未在服务器端启用' });
+    const list = await spiderSearch(configured, wd, 1);
     return finish({ sourceKey: source.key, ok: true, list });
   }
 
