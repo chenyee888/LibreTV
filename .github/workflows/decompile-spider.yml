@@ -31,7 +31,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL --max-time 20 'https://123-1349250429.cos.ap-shanghai.myqcloud.com/app.txt' -o app.txt
+          curl -fsSL --max-time 20 'https://123-1349250429.cos.ap-shanghai.myqcloud.com/app.txt' -o app.txt || echo 'app config unavailable' > app.txt
+          cp app.txt decompiled/app-config.txt
           echo 'AppDrama public config:'
           cat app.txt
           domain="$(jq -r '.domain // empty' app.txt)"
