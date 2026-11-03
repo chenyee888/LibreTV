@@ -146,7 +146,7 @@ export function PlayerShell({
     onPrevEpisode, onNextEpisode, hasPrevEpisode, hasNextEpisode,
   });
   propsRef.current = {
-    url, title, adFilter, autoplayNext, skipMark, autoSkipSegments,
+    url, headers, title, adFilter, autoplayNext, skipMark, autoSkipSegments,
     pendingStart, onPendingStart, onPlayerApi, onRecordSegment,
     episodeKey, nextUrl, nextEpisodeKey,
     getRestorePosition, onTimeUpdate, onEnded, onPause, onQuality, onRequestSwitchSource,
