@@ -331,7 +331,6 @@ class GuluClient {
           groups.set(source, list);
         }
       }
-      }
     }
     const episodes=Array.from(groups.values()).flatMap(v=>v);
     if(!episodes.length)throw new Error('咕噜详情没有解析出可播放剧集');
