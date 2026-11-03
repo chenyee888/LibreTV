@@ -334,6 +334,23 @@ class GuluClient {
     }
     return out.slice(0, 100);
   }
+  async resolvePlay(token: string): Promise<string> {
+    const prefix = Object.keys(this.templates).find(k => token.startsWith(k));
+    if (!prefix) throw new Error('咕噜没有匹配到播放解析器');
+    let value = token;
+    if ((value.startsWith('CO4K_') || value.startsWith('rose_')) && value.includes('*') && !value.includes('%2B')) {
+      value = value.replace(' ', '*');
+    }
+    const encoded = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
+    const parseUrl = this.templates[prefix] + encoded;
+    const verdict = await checkUpstreamAllowed(parseUrl);
+    if (!verdict.ok) throw new Error(verdict.reason);
+    const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+    const resolved = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
+    if (!resolved) throw new Error('咕噜解析器没有返回播放地址');
+    return toProxyUrl(upgradeGuluQuality(resolved), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+  }
+
   async detail(id:string):Promise<VideoDetail>{
     const data=await this.call(3,62,Buffer.concat([pbVar(1,BigInt(id)),pbBytes(4,'APP_PLATFORM_ANDROID_TV'),pbVar(5,0)]));
     const fs=pbDecode(data);const title=str(fs.find(x=>x.no===5));const groups=new Map<string,string[]>();
