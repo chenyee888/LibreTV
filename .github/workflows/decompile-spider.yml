@@ -27,9 +27,25 @@ jobs:
           set -e
           echo "JADX exit code: $jadx_status (nonzero can mean partial decode; retain output)"
           test -d decompiled
+      - name: Probe public source configuration and Gulu gateway
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 20 'https://123-1349250429.cos.ap-shanghai.myqcloud.com/app.txt' -o app.txt
+          echo 'AppDrama public config:'
+          cat app.txt
+          domain="$(jq -r '.domain // empty' app.txt)"
+          if [ -n "$domain" ]; then
+            echo "AppDrama domain resolved: $domain"
+            curl -sSIL --max-time 15 "https://$domain/api/v5/find/app/zone" | head -n 12 || true
+          else
+            echo 'No domain field found in app.txt'
+          fi
+          echo 'Gulu gateway reachability:'
+          curl -sSIL --max-time 15 'http://103.45.132.22:19987/app/bn/v2' | head -n 12 || true
       - name: Upload decompiled sources
         uses: actions/upload-artifact@v4
         with:
           name: tvbox-spider-decompiled
-          path: decompiled/
+          path: |\n            decompiled/\n            app.txt
           retention-days: 3
