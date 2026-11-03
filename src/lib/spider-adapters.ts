@@ -253,8 +253,9 @@ class GuluClient {
       'Content-Type':'text/plain','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
       'X-Player-Page-Protection':'1','X-Handshake-Key':key,
     }, body, signal:AbortSignal.timeout(18000) });
-    if (!res.ok) throw new Error(`咕噜握手 HTTP ${res.status}`);
-    const raw = Buffer.from((await res.text()).trim(),'base64');
+    const responseText = await res.text();
+    if (!res.ok) throw new Error(`咕噜握手 HTTP ${res.status}: ${responseText.slice(0, 300)}`);
+    const raw = Buffer.from(responseText.trim(),'base64');
     const plain = inflateSync(aesDecrypt(raw.subarray(16), Buffer.from(key), raw.subarray(0,16)));
     const f = pbDecode(plain); this.session = str(f.find(x=>x.no===1)); const server = bytes(f.find(x=>x.no===2));
     if (!this.session || server.length !== 65) throw new Error('咕噜握手响应格式不正确');
