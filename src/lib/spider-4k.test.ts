@@ -19,7 +19,16 @@ describe('4K-only Spider line selection', () => {
   });
 });
 
-describe('Gulu selected upstream lines', () => {\n  it.each(['JD4K', 'newxfyun', 'NB4K', 'qsvip'])('keeps requested line: %s', label => {\n    expect(isAllowedGuluLine(label)).toBe(true);\n  });\n  it.each(['pylg', 'KZNB', 'covip', 'rose', 'youku', 'bfzym3u8'])('rejects other line: %s', label => {\n    expect(isAllowedGuluLine(label)).toBe(false);\n  });\n});\n\ndescribe('Orange Juice selected upstream lines', () => {
+describe('Gulu selected upstream lines', () => {
+  it.each(['JD4K', 'newxfyun', 'NB4K', 'qsvip'])('keeps requested line: %s', label => {
+    expect(isAllowedGuluLine(label)).toBe(true);
+  });
+  it.each(['pylg', 'KZNB', 'covip', 'rose', 'youku', 'bfzym3u8'])('rejects other line: %s', label => {
+    expect(isAllowedGuluLine(label)).toBe(false);
+  });
+});
+
+describe('Orange Juice selected upstream lines', () => {
   it.each(['JD4K', 'SH4K', 'qsvip'])('keeps requested line: %s', label => {
     expect(isAllowedOrangeLine(label)).toBe(true);
   });
