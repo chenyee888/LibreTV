@@ -205,22 +205,23 @@ class AppDramaClient {
       director: str(first(data, 12)), actor: str(first(data, 25)), remarks: str(first(data, 26)),
     };
     // 每条 video 记录包含线路名（字段 9）与线路 URL（字段 4）。
-    // VideoDetail 是单一扁平集数表，不能把多个重复线路的全集拼接成数百集。
+    // 两条指定线路分别保留为独立分组，避免集数相加造成重复统计。
     const groups = new Map<string, string[]>();
     for (const vf of fields(data, 29)) {
       const video = bytes(vf);
       const source = str(first(video, 9)) || '橘汁';
       const path = str(first(video, 4));
-      if (!path) continue;
+      if (!path || !isAllowedOrangeLine(source)) continue;
       const token = Buffer.from(JSON.stringify({ vodPlayFrom: source, playUrl: path })).toString('base64');
       const playUrl = `/api/spider-play?source=spider_orange&payload=${encodeURIComponent(token)}`;
       const list = groups.get(source) || [];
       list.push(playUrl);
       groups.set(source, list);
     }
-    const episodes = groups.values().next().value as string[] | undefined;
-    if (!episodes?.length) throw new Error('橘汁详情中没有可用播放线路');
-    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes };
+    const episodeGroups = Array.from(groups.entries()).map(([name, episodes]) => ({ name, episodes }));
+    const episodes = episodeGroups[0]?.episodes || [];
+    if (!episodeGroups.length) throw new Error(`橘汁详情没有用户指定的 4K 线路（自建4K-3 / VIP4K）；上游线路：${Array.from(new Set(fields(data, 29).map(vf => str(first(bytes(vf), 9)) || '未命名'))).join('、') || '无'}`);
+    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes, episodeGroups };
   }
 }
 
@@ -239,9 +240,20 @@ const GULU_FALLBACK_TEMPLATES: Record<string, string> = {
   '咕噜4K': 'http://172.247.189.48:7788/dsxt/api.php?user=xt&key=e1234a9df0358c6d78f20721a1b7b055&j=b8582063bca37121&url=',
 };
 
-function upgradeGuluQuality(url: string): string {
-  if (!url.includes('.m3u8')) return url;
-  return url.replace(/\/\d{3,4}k[bB]?\//, '/2000k/').replace(/index_\d+k/, 'index_2000k').replace(/\/720[pP]\//, '/1080p/');
+/** 只接受明确标注为 4K / UHD / 2160p 的线路，不把普通高清线路升级伪装成 4K。 */
+export function is4kLineLabel(label: string): boolean {
+  return /(?:4k|2160\s*p?|uhd|超高清)/i.test(label);
+}
+
+/** 橘汁仅保留用户指定的两条线路，名称做空白归一化但不模糊匹配。 */
+export function isAllowedOrangeLine(label: string): boolean {
+  const normalized = label.replace(/[\s_-]+/g, '').toLowerCase();
+  return normalized === '自建4k3' || normalized === 'vip4k';
+}
+
+/** 咕噜的 4K 播放令牌有独立前缀；其余解析器线路一律舍弃。 */
+export function is4kGuluToken(token: string): boolean {
+  return token.startsWith('CO4K_') || token.startsWith('rose_') || token.startsWith('xfy-');
 }
 
 const GULU_GATEWAY = 'http://103.45.132.22:19987/app/bn/v2';
@@ -366,14 +378,17 @@ class GuluClient {
     const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
     const resolved = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
     if (!resolved) throw new Error('咕噜解析器没有返回播放地址');
-    return toProxyUrl(upgradeGuluQuality(resolved), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+    return toProxyUrl(resolved, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
   }
 
   async detail(id:string):Promise<VideoDetail>{
     const data=await this.call(3,62,Buffer.concat([pbVar(1,BigInt(id)),pbBytes(4,'APP_PLATFORM_ANDROID_TV'),pbVar(5,0)]));
     const fs=pbDecode(data);const title=str(fs.find(x=>x.no===5));const groups=new Map<string,string[]>();
+    const upstreamLineLabels = new Set<string>();
     for(const group of fields(data,75)){
       const g=pbDecode(bytes(group));const source=str(g.find(x=>x.no===1))||'咕噜';
+      upstreamLineLabels.add(source);
+      if (!is4kLineLabel(source)) continue;
       for (const ep of g.filter(x => x.no === 2 && x.wire === 2)) {
         const e = pbDecode(bytes(ep));
         let url = str(e.find(x => x.no === 3));
@@ -381,9 +396,9 @@ class GuluClient {
         if (/^https?:\/\//i.test(url)) {
           const directStream = /\.m3u8?(?:[?#].*)?$|\.mp4(?:[?#].*)?$|\.flv(?:[?#].*)?$|\.ts(?:[?#].*)?$|\.mpd(?:[?#].*)?$|\.m4a(?:[?#].*)?$|\.mov(?:[?#].*)?$|\.mkv(?:[?#].*)?$|\.avi(?:[?#].*)?$|\.wmv(?:[?#].*)?$|m\.php(?:[?#].*)?$/i.test(url);
           if (!directStream) continue;
-          url = toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+          url = toProxyUrl(url, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
         } else {
-          const supported = Object.keys(GULU_PREFIX_LABELS).some(prefix => url.startsWith(prefix));
+          const supported = is4kGuluToken(url);
           if (!supported) continue;
           url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(url)}`;
         }
@@ -394,9 +409,10 @@ class GuluClient {
         }
       }
     }
-    const episodes=Array.from(groups.values()).flatMap(v=>v);
-    if(!episodes.length)throw new Error('咕噜详情没有解析出可播放剧集');
-    return {videoInfo:{title,sourceKey:'',sourceName:''},episodes};
+    const episodeGroups = Array.from(groups.entries()).map(([name, episodes]) => ({ name, episodes }));
+    const episodes = episodeGroups[0]?.episodes || [];
+    if(!episodeGroups.length)throw new Error(`咕噜详情没有明确标注为 4K 的播放线路；上游线路：${Array.from(upstreamLineLabels).join('、') || '无'}`);
+    return {videoInfo:{title,sourceKey:'',sourceName:''},episodes,episodeGroups};
   }
 }
 

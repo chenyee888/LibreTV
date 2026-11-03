@@ -46,6 +46,8 @@ export interface VideoInfo {
 
 export interface VideoDetail {
   episodes: string[];
+  /** Optional named playback lines; each line owns an independent episode list. */
+  episodeGroups?: { name: string; episodes: string[] }[];
   videoInfo: VideoInfo;
 }
 

@@ -61,6 +61,7 @@ function WatchContent() {
   const directUrl = searchParams.get('url') || '';
   const titleParam = searchParams.get('title') || '';
   const indexParam = parseInt(searchParams.get('index') || '0', 10) || 0;
+  const lineParam = Math.max(0, parseInt(searchParams.get('line') || '0', 10) || 0);
 
   const [reversed, setReversed] = useState(false);
   const [switchOpen, setSwitchOpen] = useState(false);
@@ -112,7 +113,10 @@ function WatchContent() {
     staleTime: 5 * 60_000,
   });
 
-  const episodes = useMemo(() => detailQuery.data?.episodes ?? [], [detailQuery.data]);
+  const episodes = useMemo(() => {
+    const groups = detailQuery.data?.episodeGroups;
+    return groups?.length ? (groups[Math.min(lineParam, groups.length - 1)]?.episodes ?? []) : (detailQuery.data?.episodes ?? []);
+  }, [detailQuery.data, lineParam]);
   const videoTitle = titleParam || detailQuery.data?.videoInfo?.title || '未知视频';
 
   // 当前播放地址：优先取剧集列表中的当前集，其次直连 URL 参数

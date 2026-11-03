@@ -29,6 +29,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [reversed, setReversed] = useState(false);
+  const [selectedLine, setSelectedLine] = useState(0);
   const [posterFailed, setPosterFailed] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -37,6 +38,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
   useFocusTrap(Boolean(item), panelRef);
 
   useEffect(() => setPosterFailed(false), [item?.pic, store.imageProxyMode, store.customImageProxy]);
+  useEffect(() => { setSelectedLine(0); setReversed(false); }, [item?.sourceKey, item?.vodId]);
 
   // 弹窗打开期间锁定背景滚动
   useEffect(() => {
@@ -90,17 +92,21 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
 
   if (!item) return null;
 
-  const episodes = detail ? (reversed ? [...detail.episodes].reverse() : detail.episodes) : [];
+  const groups = detail?.episodeGroups?.length ? detail.episodeGroups : (detail ? [{ name: '默认线路', episodes: detail.episodes }] : []);
+  const activeGroup = groups[Math.min(selectedLine, Math.max(0, groups.length - 1))];
+  const lineEpisodes = activeGroup?.episodes || [];
+  const episodes = reversed ? [...lineEpisodes].reverse() : lineEpisodes;
   const info = detail?.videoInfo;
 
   const play = (index: number) => {
-    if (!detail || !detail.episodes[index]) return;
+    if (!detail || !lineEpisodes[index]) return;
     addSearchHistory(item.name).catch(() => {});
     router.push(
       buildWatchUrl({
         sourceKey: item.sourceKey,
         vodId: item.vodId,
         index,
+        line: selectedLine,
         title: item.name,
         sourceUrl: item.sourceUrl,
       })
@@ -109,7 +115,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
 
   const copyLinks = async () => {
     if (!detail) return;
-    const ok = await copyToClipboard(detail.episodes.join('\n'));
+    const ok = await copyToClipboard(lineEpisodes.join('\n'));
     if (ok) toast('播放链接已复制', 'success');
     else toast('复制失败，请检查浏览器权限', 'error');
   };
@@ -192,6 +198,15 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
                 </div>
               </div>
 
+              {groups.length > 1 && (
+                <div className="flex flex-wrap gap-2 mb-3" aria-label="播放线路">
+                  {groups.map((group, index) => (
+                    <button key={group.name} className={cn('btn-sm rounded-md px-3 py-1.5', selectedLine === index ? 'btn-primary' : 'btn-ghost')} onClick={() => { setSelectedLine(index); setReversed(false); }}>
+                      {group.name}（{group.episodes.length}集）
+                    </button>
+                  ))}
+                </div>
+              )}
               {episodes.length > 0 ? (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
