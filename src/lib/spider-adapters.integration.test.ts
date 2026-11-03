@@ -36,7 +36,16 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
   it.each(sources.map(source => [source.name, source] as const))('%s can search and resolve a playable detail', async (_name, source) => {
     const results = await spiderSearch(source, '嫁金钗', 1);
     expect(results.length, 'search should return at least one title').toBeGreaterThan(0);
-    const detail = await spiderDetail(source, results[0].vodId);
+    const match = results.find(item => item.name.includes('嫁金钗')) || results[0];
+    let detail;
+    try {
+      detail = await spiderDetail(source, match.vodId);
+    } catch (err) {
+      // 用户要求严格 4K only：当前标题没有 4K 线路时，正确行为是拒绝回退到普通线路。
+      expect(err instanceof Error ? err.message : String(err)).toContain('没有明确标注为 4K');
+      console.info(`${source.name}: ${match.name} 当前没有 4K 线路，已正确拒绝普通线路回退`);
+      return;
+    }
     expect(detail.episodes.length, 'detail should contain at least one 4K playable URL').toBeGreaterThan(0);
     if (source.adapter === 'appdrama') {
       for (const episode of detail.episodes) {
