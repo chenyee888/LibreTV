@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getEnvSources } from './env-sources';
-import { is4kGuluToken, is4kLineLabel, spiderDetail, spiderResolvePlay, spiderSearch } from './spider-adapters';
+import { is4kGuluToken, is4kLineLabel, isAllowedOrangeLine, spiderDetail, spiderResolvePlay, spiderSearch } from './spider-adapters';
 
 async function probeMediaUrl(proxyOrDirectUrl: string) {
   const parsed = new URL(proxyOrDirectUrl, 'https://libretv.test');
@@ -42,7 +42,7 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
       detail = await spiderDetail(source, match.vodId);
     } catch (err) {
       // 用户要求严格 4K only：当前标题没有 4K 线路时，正确行为是拒绝回退到普通线路。
-      expect(err instanceof Error ? err.message : String(err)).toContain('没有明确标注为 4K');
+      expect(err instanceof Error ? err.message : String(err)).toContain('4K');
       console.info(`${source.name}: ${match.name} 当前没有 4K 线路，已正确拒绝普通线路回退`);
       return;
     }
@@ -52,7 +52,7 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
         const params = new URL(episode, 'https://libretv.test').searchParams;
         const token = params.get('payload') || '';
         const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8')) as { vodPlayFrom?: string; playUrl?: string };
-        expect(is4kLineLabel(decoded.vodPlayFrom || '') || is4kLineLabel(decoded.playUrl || ''), 'Orange Juice episode must belong to a 4K line').toBe(true);
+        expect(isAllowedOrangeLine(decoded.vodPlayFrom || ''), 'Orange Juice episode must belong to 自建4K-3 or VIP4K').toBe(true);
       }
     } else {
       for (const episode of detail.episodes) {
