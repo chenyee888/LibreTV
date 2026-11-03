@@ -58,7 +58,8 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
       for (const episode of detail.episodes) {
         if (!episode.startsWith('/api/spider-play?')) continue;
         const params = new URL(episode, 'https://libretv.test').searchParams;
-        const packed = params.get('token') || '';\n        const selected = JSON.parse(Buffer.from(packed, 'base64url').toString('utf8')) as { line?: string; token?: string };\n        expect(isAllowedGuluLine(selected.line || ''), 'Gulu episode must belong to the selected upstream lines').toBe(true);
+        const packed = params.get('token') || '';
+        const selected = JSON.parse(Buffer.from(packed, 'base64url').toString('utf8')) as { line?: string; token?: string };\n        expect(isAllowedGuluLine(selected.line || ''), 'Gulu episode must belong to the selected upstream lines').toBe(true);
       }
     }
     const pending = detail.episodes.find(url => url.startsWith('/api/spider-play?'));
