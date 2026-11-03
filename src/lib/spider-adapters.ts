@@ -2,7 +2,7 @@ import {
   createCipheriv, createDecipheriv, createECDH, createHmac, publicEncrypt, randomBytes,
   constants as cryptoConstants,
 } from 'node:crypto';
-import { deflateRawSync, inflateRawSync } from 'node:zlib';
+import { deflateSync, inflateSync, deflateRawSync, inflateRawSync } from 'node:zlib';
 import type { SearchResultItem, SourceConfig, VideoDetail } from './types';
 import { checkUpstreamAllowed } from './ssrf';
 
@@ -238,15 +238,15 @@ class GuluClient {
     const pub = ecdh.getPublicKey(undefined, 'uncompressed');
     const key = randomBytes(16).toString('hex'); const iv = randomBytes(16);
     const init = Buffer.concat([pbBytes(1, pub), pbBytes(2, '1.0.0'), pbBytes(3, Buffer.concat([pbVar(1,1),pbVar(2,1),pbVar(3,1)]))]);
-    const encrypted = aesEncrypt(deflateRawSync(init, { level: 5 }), key, 'cbc', iv);
+    const encrypted = aesEncrypt(deflateSync(init, { level: 5 }), key, 'cbc', iv);
     const body = Buffer.concat([iv, encrypted]).toString('base64');
     const res = await fetch(GULU_GATEWAY, { method:'POST', headers:{
-      'Content-Type':'text/plain','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
+      'Content-Type':'application/x-protobuf','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
       'X-Player-Page-Protection':'1','X-Handshake-Key':key,
     }, body, signal:AbortSignal.timeout(18000) });
     if (!res.ok) throw new Error(`咕噜握手 HTTP ${res.status}`);
     const raw = Buffer.from((await res.text()).trim(),'base64');
-    const plain = inflateRawSync(aesDecrypt(raw.subarray(16), Buffer.from(key), raw.subarray(0,16)));
+    const plain = inflateSync(aesDecrypt(raw.subarray(16), Buffer.from(key), raw.subarray(0,16)));
     const f = pbDecode(plain); this.session = str(f.find(x=>x.no===1)); const server = bytes(f.find(x=>x.no===2));
     if (!this.session || server.length !== 65) throw new Error('咕噜握手响应格式不正确');
     const secret = ecdh.computeSecret(server).subarray(-32);
