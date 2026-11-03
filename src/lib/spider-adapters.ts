@@ -4,6 +4,7 @@ import {
 } from 'node:crypto';
 import { deflateRawSync, inflateRawSync } from 'node:zlib';
 import type { SearchResultItem, SourceConfig, VideoDetail } from './types';
+import { checkUpstreamAllowed } from './ssrf';
 
 type Field = { no: number; wire: number; value: bigint | Buffer };
 
