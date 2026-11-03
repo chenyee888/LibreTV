@@ -187,7 +187,7 @@ class AppDramaClient {
     const headers: Record<string,string> = {};
     for (const entry of fields(data, 6)) {
       const map = pbDecode(bytes(entry));
-      headers[str(first(map, 1))] = str(first(map, 2));
+      headers[str(map.find(f => f.no === 1))] = str(map.find(f => f.no === 2));
     }
     if (!url) throw new Error('橘汁没有返回可播放地址');
     return { url, headers };
