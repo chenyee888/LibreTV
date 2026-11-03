@@ -211,7 +211,7 @@ class AppDramaClient {
       const video = bytes(vf);
       const source = str(first(video, 9)) || '橘汁';
       const path = str(first(video, 4));
-      if (!path) continue;
+      if (!path || (!is4kLineLabel(source) && !is4kLineLabel(path))) continue;
       const token = Buffer.from(JSON.stringify({ vodPlayFrom: source, playUrl: path })).toString('base64');
       const playUrl = `/api/spider-play?source=spider_orange&payload=${encodeURIComponent(token)}`;
       const list = groups.get(source) || [];
@@ -385,6 +385,8 @@ class GuluClient {
         const e = pbDecode(bytes(ep));
         let url = str(e.find(x => x.no === 3));
         if (!url) continue;
+        // 咕噜 4K 可能由线路名称或专用 token 标识；只要两者都没有 4K 标记就丢弃。
+        if (!is4kLineLabel(source) && !is4kLineLabel(url) && !is4kGuluToken(url)) continue;
         if (/^https?:\/\//i.test(url)) {
           const directStream = /\.m3u8?(?:[?#].*)?$|\.mp4(?:[?#].*)?$|\.flv(?:[?#].*)?$|\.ts(?:[?#].*)?$|\.mpd(?:[?#].*)?$|\.m4a(?:[?#].*)?$|\.mov(?:[?#].*)?$|\.mkv(?:[?#].*)?$|\.avi(?:[?#].*)?$|\.wmv(?:[?#].*)?$|m\.php(?:[?#].*)?$/i.test(url);
           if (!directStream) continue;
@@ -401,9 +403,8 @@ class GuluClient {
         }
       }
     }
-    const fourKGroup = Array.from(groups.entries()).find(([label]) => is4kLineLabel(label));
-    const episodes = fourKGroup?.[1] || [];
-    if(!episodes.length)throw new Error(`咕噜详情没有明确标注为 4K 的播放线路；上游线路：${Array.from(groups.keys()).join('、') || '无'}`);
+    const episodes = groups.values().next().value as string[] | undefined;
+    if(!episodes?.length)throw new Error(`咕噜详情没有明确标注为 4K 的播放线路；上游线路：${Array.from(upstreamLineLabels).join('、') || '无'}`);
     return {videoInfo:{title,sourceKey:'',sourceName:''},episodes};
   }
 }
