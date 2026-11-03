@@ -55,7 +55,12 @@ function apiData(buf: Buffer): Buffer {
   if (!f) throw new Error('上游响应缺少 protobuf data 字段');
   return bytes(f);
 }
-function javaHashIndex(value: string): number {\n  let h = 0; for (let i = 0; i < value.length; i++) h = (Math.imul(31, h) + value.charCodeAt(i)) | 0;\n  return (h ^ (h >>> 16)) & 15;\n}\nfunction randText(size: number): string {
+function javaHashIndex(value: string): number {
+  let h = 0;
+  for (let i = 0; i < value.length; i++) h = (Math.imul(31, h) + value.charCodeAt(i)) | 0;
+  return (h ^ (h >>> 16)) & 15;
+}
+function randText(size: number): string {
   const alphabet = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
   const b = randomBytes(size - 1);
   return Array.from(b, x => alphabet[x % alphabet.length]).join('') + '=';
