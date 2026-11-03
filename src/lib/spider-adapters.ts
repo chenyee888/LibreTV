@@ -224,6 +224,21 @@ class AppDramaClient {
   }
 }
 
+const GULU_PREFIX_LABELS: Record<string, string> = {
+  'CO4K_': '咖啡4K', 'rose_': '咖啡4K', 'NBY-': '蚂蚁',
+  'qsvip-': '熊出没', 'qingshan-': '熊出没', 'JP-': '旋风金牌',
+  'xfy-': '新咕噜4K',
+};
+const GULU_FALLBACK_TEMPLATES: Record<string, string> = {
+  '咖啡4K': 'https://co4k.1ljx.com:32010/api/?key=6db7285d-c228-4cee-918e-67a01ef7c3f8&url=',
+  '蚂蚁': 'https://api.nbyjson.top:7788/api/?key=8LJohkjTZHC2F9ct48&url=',
+  '熊出没': 'https://jf.hxx2023.cc/api?key=Uw5rZokFSAywqcLN&url=',
+  '旋风金牌': 'http://111.170.58.215:4470/api.php?id=',
+  '咕噜金牌': 'http://111.170.58.215:4470/api.php?id=',
+  '新咕噜4K': 'http://172.247.189.48:7788/dsxt/api.php?user=xt&key=969632c8da19b3ef8c56e5b51011d5e0&j=19227eae77225a30&url=',
+  '咕噜4K': 'http://172.247.189.48:7788/dsxt/api.php?user=xt&key=e1234a9df0358c6d78f20721a1b7b055&j=b8582063bca37121&url=',
+};
+
 function upgradeGuluQuality(url: string): string {
   if (!url.includes('.m3u8')) return url;
   return url.replace(/\/\d{3,4}k[bB]?\//, '/2000k/').replace(/index_\d+k/, 'index_2000k').replace(/\/720[pP]\//, '/1080p/');
@@ -335,14 +350,17 @@ class GuluClient {
     return out.slice(0, 100);
   }
   async resolvePlay(token: string): Promise<string> {
-    const prefix = Object.keys(this.templates).find(k => token.startsWith(k));
+    const prefix = Object.keys(GULU_PREFIX_LABELS).find(k => token.startsWith(k));
     if (!prefix) throw new Error('咕噜没有匹配到播放解析器');
+    const label = GULU_PREFIX_LABELS[prefix];
+    const template = this.templates[label] || GULU_FALLBACK_TEMPLATES[label];
+    if (!template) throw new Error(`咕噜缺少 ${label} 解析器模板`);
     let value = token;
     if ((value.startsWith('CO4K_') || value.startsWith('rose_')) && value.includes('*') && !value.includes('%2B')) {
       value = value.replace(' ', '*');
     }
     const encoded = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-    const parseUrl = this.templates[prefix] + encoded;
+    const parseUrl = template + encoded;
     const verdict = await checkUpstreamAllowed(parseUrl);
     if (!verdict.ok) throw new Error(verdict.reason);
     const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
