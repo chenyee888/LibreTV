@@ -214,7 +214,10 @@ class AppDramaClient {
         try {
           const resolved = await this.resolvePlay(token);
           playUrl = resolved.url;
-          if (resolved.headers && Object.keys(resolved.headers).length) episodeHeaders[playUrl] = resolved.headers;
+          if (resolved.headers && Object.keys(resolved.headers).length) {
+            const headerToken = Buffer.from(JSON.stringify(resolved.headers)).toString('base64url');
+            playUrl = `/api/proxy?headers=${encodeURIComponent(headerToken)}&url=${encodeURIComponent(playUrl)}`;
+          }
         } catch { continue; }
       }
       const list = groups.get(source) || []; list.push(playUrl); groups.set(source, list);
