@@ -1,5 +1,9 @@
 // 采集站（Apple CMS 资源站）描述
 export interface SourceConfig {
+  /** 内置 TVBox Spider 协议适配器 */
+  adapter?: 'gulu' | 'appdrama';
+  /** Spider 初始化参数（仅 appdrama 使用） */
+  ext?: Record<string, string>;
   /** 唯一标识，如 "custom_0"；内置源直接用短名 */
   key: string;
   name: string;

@@ -7,7 +7,23 @@ import type { SourceConfig } from './types';
  */
 export function getEnvSources(): SourceConfig[] {
   const raw = process.env.DEFAULT_SOURCES;
-  if (!raw || !raw.trim()) return [];
+  if (!raw || !raw.trim()) return [
+    { key: 'spider_gulu', name: '咕噜', url: 'http://103.45.132.22:19987/app/bn/v2', adapter: 'gulu' },
+    {
+      key: 'spider_orange', name: '橘汁', url: 'http://juziapp.hzhcbkj.cn', adapter: 'appdrama',
+      ext: {
+        appName: '橘汁',
+        publicKey: 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCr8SzZhjYy+rsya1K09t8d2K50pWFoBkgUqMpKOiW+3IEVKd4eTdvg9RSOjQ82kypL6R9BnsmrS1V8s4PVDwjQbUtYhTPPC9Hz16qY7rpD6m0d2vr09/UpWQ5uOy9PR0QTrsioveZ+DIe9jc3C+zBCu/kZSY/R8stwJoiitki3gwIDAQAB',
+        dataKey: 'ZU1DSFFWNENKMDYXVUQRN0ZJDUC4PQ==',
+        dataIv: 'OC1A06E197EF10CF3F6058CA7A803B5E',
+        pkg: 'com.asjdhjhd.mgd.p3',
+        host: '',
+        site: 'https://123-1349250429.cos.ap-shanghai.myqcloud.com/app.txt',
+        version: '3.0.7.0',
+        decrypt: '1',
+      },
+    },
+  ];
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) throw new Error('必须是 JSON 数组');
@@ -15,7 +31,7 @@ export function getEnvSources(): SourceConfig[] {
       if (typeof item !== 'object' || item === null) {
         throw new Error(`第 ${i + 1} 项不是对象`);
       }
-      const { name, url, detail, isAdult } = item as Record<string, unknown>;
+      const { name, url, detail, isAdult, adapter, ext } = item as Record<string, unknown>;
       if (typeof name !== 'string' || !name.trim()) {
         throw new Error(`第 ${i + 1} 项缺少 name`);
       }
@@ -28,6 +44,8 @@ export function getEnvSources(): SourceConfig[] {
         url: url.trim().replace(/\/+$/, ''),
         detail: typeof detail === 'string' && detail.trim() ? detail.trim() : undefined,
         isAdult: isAdult === true,
+        ...(adapter === 'gulu' || adapter === 'appdrama' ? { adapter } : {}),
+        ...(adapter === 'appdrama' && ext && typeof ext === 'object' ? { ext: ext as Record<string, string> } : {}),
       };
     });
     return list;

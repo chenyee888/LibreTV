@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
-import { rewriteM3u8, LIVE_STREAM_BASE } from '@/lib/m3u8';
+import { rewriteM3u8, LIVE_STREAM_BASE, PROXY_BASE } from '@/lib/m3u8';
 
 /**
  * 代理目标地址的两种传入形式：
@@ -68,7 +68,11 @@ export function decodePathTarget(encodedUrl: string): string {
  * - 未登录仅放行图片目标（豆瓣封面等），且同样受 SSRF 防护约束；
  * - m3u8 文本重写为代理地址，分片/key/map 全部经本站转发，规避上游 CORS。
  */
-export async function handleProxyRequest(req: Request, targetUrl: string): Promise<Response> {
+export async function handleProxyRequest(
+  req: Request,
+  targetUrl: string,
+  upstreamHeaders: Record<string, string> = {}
+): Promise<Response> {
   const guarded = guardRequest(req);
   if (guarded && !looksLikeImageUrl(targetUrl)) return guarded;
 
@@ -80,6 +84,12 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   }
 
   const headers: Record<string, string> = { 'User-Agent': UA, Accept: '*/*' };
+  for (const [name, value] of Object.entries(upstreamHeaders)) {
+    if (/^(user-agent|referer|origin|authorization|cookie|x-[a-z0-9-]+)$/i.test(name) &&
+        typeof value === 'string' && value.length <= 2048 && !/[\r\n]/.test(value)) {
+      headers[name] = value;
+    }
+  }
   try {
     if (isDoubanHost(new URL(targetUrl).hostname)) {
       headers.Referer = 'https://movie.douban.com/';
@@ -121,7 +131,11 @@ export async function handleProxyRequest(req: Request, targetUrl: string): Promi
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
   if (isM3u8) {
     const text = await response.text();
-    return new NextResponse(rewriteM3u8(text, finalUrl), {
+    const headerToken = new URL(req.url).searchParams.get('headers');
+    const proxyPrefix = headerToken
+      ? `/api/proxy?headers=${encodeURIComponent(headerToken)}&url=`
+      : PROXY_BASE;
+    return new NextResponse(rewriteM3u8(text, finalUrl, 0, proxyPrefix), {
       status: response.status,
       headers: {
         'Content-Type': 'application/vnd.apple.mpegurl',
