@@ -201,6 +201,7 @@ class AppDramaClient {
       director: str(first(data, 12)), actor: str(first(data, 25)), remarks: str(first(data, 26)),
     };
     const groups = new Map<string, string[]>();
+    const episodeHeaders: Record<string, Record<string,string>> = {};
     const videos = fields(data, 29);
     for (const vf of videos) {
       const video = bytes(vf);
@@ -211,13 +212,13 @@ class AppDramaClient {
       let playUrl = path;
       if (!/\.(mp4|m3u8|flv|mkv|avi|ts|mov|mpd|m4a|wmv)(\?.*)?$/i.test(path)) {
         const token = Buffer.from(JSON.stringify({ vodPlayFrom: str(first(video, 9)), playUrl: path })).toString('base64');
-        try { playUrl = (await this.resolvePlay(token)).url; } catch { continue; }
+        try {\n          const resolved = await this.resolvePlay(token);\n          playUrl = resolved.url;\n          if (resolved.headers && Object.keys(resolved.headers).length) episodeHeaders[playUrl] = resolved.headers;\n        } catch { continue; }
       }
       const list = groups.get(source) || []; list.push(playUrl); groups.set(source, list);
     }
     const from = Array.from(groups.keys()); const urls = Array.from(groups.values()).map(x => x.join('#'));
     if (!from.length) throw new Error('橘汁详情中没有可用播放线路');
-    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes: urls.flatMap(x => x.split('#')) };
+    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes: urls.flatMap(x => x.split('#')), episodeHeaders };
   }
 }
 
