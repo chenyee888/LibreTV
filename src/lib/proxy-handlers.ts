@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
-import { rewriteM3u8, LIVE_STREAM_BASE } from '@/lib/m3u8';
+import { rewriteM3u8, LIVE_STREAM_BASE, PROXY_BASE } from '@/lib/m3u8';
 
 /**
  * 代理目标地址的两种传入形式：
