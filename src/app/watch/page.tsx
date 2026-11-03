@@ -124,8 +124,6 @@ function WatchContent() {
     return directUrl;
   }, [episodes, indexParam, directUrl]);
 
-  const currentHeaders = detailQuery.data?.episodeHeaders?.[currentUrl];
-
   const currentIndex = useMemo(() => {
     if (episodes.length > 0) return Math.min(Math.max(indexParam, 0), episodes.length - 1);
     return indexParam;
@@ -320,7 +318,6 @@ function WatchContent() {
               {currentUrl ? (
                 <PlayerShell
                   url={currentUrl}
-                  headers={currentHeaders}
                   title={videoTitle}
                   adFilter={store.adFilter}
                   autoplayNext={store.autoplayNext}
