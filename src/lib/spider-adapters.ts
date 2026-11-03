@@ -260,7 +260,7 @@ class GuluClient {
     const res = await fetch(GULU_GATEWAY,{method:'POST',headers:{
       'Content-Type':'application/x-protobuf','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
       'X-Player-Page-Protection':'1','X-Session-Id':this.session,
-    },body,signal:AbortSignal.timeout(18000)});
+    },body:new Uint8Array(body),signal:AbortSignal.timeout(18000)});
     if(!res.ok) throw new Error(`咕噜接口 HTTP ${res.status}`);
     const outer = pbDecode(Buffer.from(await res.arrayBuffer()));
     const encryptedResponse = bytes(outer.find(x=>x.no===2));
