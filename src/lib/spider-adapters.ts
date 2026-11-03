@@ -80,7 +80,7 @@ function rsaEncrypt(text: string, publicKeyB64: string): string {
   return publicEncrypt({ key: pem, padding: cryptoConstants.RSA_PKCS1_PADDING }, Buffer.from(text)).toString('base64');
 }
 async function postBytes(url: string, body: Buffer, headers: Record<string, string>, contentType = 'application/x-protobuf'): Promise<Buffer> {
-  const res = await fetch(url, { method: 'POST', headers: { ...headers, 'Content-Type': contentType }, body, signal: AbortSignal.timeout(18000) });
+  const res = await fetch(url, { method: 'POST', headers: { ...headers, 'Content-Type': contentType }, body: new Uint8Array(body), signal: AbortSignal.timeout(18000) });
   if (!res.ok) throw new Error(`上游 HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }
@@ -146,7 +146,7 @@ class AppDramaClient {
     const sig = rsaEncrypt(`${timestamp}${random}${device.vApp}`, publicKey);
     const sig2 = aesEncrypt(Buffer.from(`${timestamp}${random}`), this.cfg.dataIv, 'ecb').toString('base64');
     const params = { ...device, sig, random_str: random, timestamp, sig2: sig2.slice(0, 8), sig3: sig2.slice(8) };
-    const encrypted = aesEncrypt(Buffer.from(JSON.stringify(params)), this.staticKey, 'cbc', this.staticKey).toString('hex');
+    const encrypted = aesEncrypt(Buffer.from(JSON.stringify(params)), this.staticKey, 'cbc', Buffer.from(this.staticKey)).toString('hex');
     return {
       'User-Agent': 'okhttp/3.12.1', Accept: 'application/x-protobuf',
       publicParams: JSON.stringify({ paramsData: encrypted }),
