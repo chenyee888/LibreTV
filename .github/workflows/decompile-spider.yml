@@ -21,7 +21,12 @@ jobs:
           chmod +x "$(find jadx -type f -name jadx | head -n1)"
           curl -fL https://raw.githubusercontent.com/qist/tvbox/master/jar/spider.jar -o spider.jar
           mkdir -p decompiled
+          set +e
           "$(find "$PWD/jadx" -type f -name jadx | head -n1)" -d decompiled spider.jar
+          jadx_status=$?
+          set -e
+          echo "JADX exit code: $jadx_status (nonzero can mean partial decode; retain output)"
+          test -d decompiled
       - name: Upload decompiled sources
         uses: actions/upload-artifact@v4
         with:
