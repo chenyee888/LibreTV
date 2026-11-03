@@ -11,6 +11,15 @@ export const PROXY_BASE = '/api/proxy?url=';
 /** 直播流代理地址（查询串形式） */
 export const LIVE_STREAM_BASE = '/api/live/stream?url=';
 
+/** 判断 URL 路径是否为 M3U8；忽略查询参数与片段标识。 */
+export function isM3u8Url(url: string): boolean {
+  try {
+    return new URL(url).pathname.toLowerCase().endsWith('.m3u8');
+  } catch {
+    return url.toLowerCase().split(/[?#]/, 1)[0].endsWith('.m3u8');
+  }
+}
+
 /** URI 已是本站代理地址（新旧两种形式：/api/proxy/…、/api/proxy?url=…、/api/live/stream/…、/api/live/stream?url=…）时不再二次改写 */
 export function isProxiedUri(uri: string): boolean {
   return uri.startsWith('/api/proxy') || uri.startsWith('/api/live/stream');
