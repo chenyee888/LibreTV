@@ -206,7 +206,6 @@ class AppDramaClient {
     for (const vf of videos) {
       const video = bytes(vf);
       const source = str(first(video, 10)) || '橘汁';
-      const title = str(first(video, 2)) || '播放';
       const path = str(first(video, 4));
       if (!path) continue;
       let playUrl = path;
