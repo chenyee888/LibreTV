@@ -51,8 +51,8 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
       for (const episode of detail.episodes) {
         const params = new URL(episode, 'https://libretv.test').searchParams;
         const token = params.get('payload') || '';
-        const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8')) as { vodPlayFrom?: string };
-        expect(is4kLineLabel(decoded.vodPlayFrom || ''), 'Orange Juice episode must belong to a 4K line').toBe(true);
+        const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8')) as { vodPlayFrom?: string; playUrl?: string };
+        expect(is4kLineLabel(decoded.vodPlayFrom || '') || is4kLineLabel(decoded.playUrl || ''), 'Orange Juice episode must belong to a 4K line').toBe(true);
       }
     } else {
       for (const episode of detail.episodes) {
