@@ -247,7 +247,7 @@ export function is4kLineLabel(label: string): boolean {
 
 /** 橘汁仅保留用户指定的两条线路，名称做空白归一化但不模糊匹配。 */
 export function isAllowedOrangeLine(label: string): boolean {
-  const normalized = label.replace(/[\\s_-]+/g, '').toLowerCase();
+  const normalized = label.replace(/[\s_-]+/g, '').toLowerCase();
   return normalized === '自建4k3' || normalized === 'vip4k';
 }
 
