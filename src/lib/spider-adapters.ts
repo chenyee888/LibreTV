@@ -240,6 +240,26 @@ const GULU_FALLBACK_TEMPLATES: Record<string, string> = {
   '咕噜4K': 'http://172.247.189.48:7788/dsxt/api.php?user=xt&key=e1234a9df0358c6d78f20721a1b7b055&j=b8582063bca37121&url=',
 };
 
+/**
+ * Resolve Gulu parser metadata without exposing token contents or parser URLs.
+ * An upstream line name is not a parser name; unknown token prefixes must not
+ * be guessed from the selected line.
+ */
+export function getGuluParserDiagnostics(
+  token: string,
+  templates: Record<string, string>,
+): { tokenPrefix: string; parserLabel: string | null; templateNames: string[]; templateAvailable: boolean } {
+  const prefix = Object.keys(GULU_PREFIX_LABELS).find(k => token.startsWith(k));
+  const parserLabel = prefix ? GULU_PREFIX_LABELS[prefix] : null;
+  const templateNames = Object.keys(templates).sort();
+  return {
+    tokenPrefix: prefix || '未知',
+    parserLabel,
+    templateNames,
+    templateAvailable: !!parserLabel && !!(templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel]),
+  };
+}
+
 /** 只接受明确标注为 4K / UHD / 2160p 的线路，不把普通高清线路升级伪装成 4K。 */
 export function is4kLineLabel(label: string): boolean {
   return /(?:4k|2160\s*p?|uhd|超高清)/i.test(label);
@@ -374,15 +394,21 @@ class GuluClient {
       const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { line?: string; token?: string };
       if (parsed.token) { token = parsed.token; selectedLine = parsed.line || ''; }
     } catch { /* legacy token */ }
-    const prefix = Object.keys(GULU_PREFIX_LABELS).find(k => token.startsWith(k));
-    // selectedLine 是上游线路名，只用于白名单校验；解析器模板应按播放令牌自身的
-    // TVBox 前缀选择。两者不是同一个命名空间（例如 newxfyun -> xfy- -> 新咕噜4K）。
+    // 上游线路名与解析器模板名属于不同命名空间，不能互相替代。
     if (!selectedLine || !isAllowedGuluLine(selectedLine)) {
       throw new Error('咕噜没有匹配到允许的播放线路');
     }
-    const parserLabel = prefix ? GULU_PREFIX_LABELS[prefix] : selectedLine;
-    const template = this.templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel];
-    if (!template) throw new Error(`咕噜线路 ${selectedLine}（解析器 ${parserLabel}）缺少模板`);
+    const diagnostics = getGuluParserDiagnostics(token, this.templates);
+    const parserLabel = diagnostics.parserLabel;
+    const template = parserLabel
+      ? (this.templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel])
+      : undefined;
+    if (!template) {
+      throw new Error(
+        `咕噜线路 ${selectedLine} 暂无可用解析器模板；令牌前缀：${diagnostics.tokenPrefix}；` +
+        `解析器：${parserLabel || '未识别'}；运行时模板名称：${diagnostics.templateNames.join('、') || '无'}`
+      );
+    }
     const value = token;
     const encodedValue = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
     const parseUrl = template + encodedValue;
