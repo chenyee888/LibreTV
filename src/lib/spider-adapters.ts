@@ -220,7 +220,7 @@ class AppDramaClient {
     }
     const fourKGroup = Array.from(groups.entries()).find(([label]) => is4kLineLabel(label));
     const episodes = fourKGroup?.[1];
-    if (!episodes?.length) throw new Error('橘汁详情没有明确标注为 4K 的播放线路');
+    if (!episodes?.length) throw new Error(`橘汁详情没有明确标注为 4K 的播放线路；上游线路：${Array.from(groups.keys()).join('、') || '无'}`);
     return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes };
   }
 }
@@ -403,7 +403,7 @@ class GuluClient {
     }
     const fourKGroup = Array.from(groups.entries()).find(([label]) => is4kLineLabel(label));
     const episodes = fourKGroup?.[1] || [];
-    if(!episodes.length)throw new Error('咕噜详情没有明确标注为 4K 的播放线路');
+    if(!episodes.length)throw new Error(`咕噜详情没有明确标注为 4K 的播放线路；上游线路：${Array.from(groups.keys()).join('、') || '无'}`);
     return {videoInfo:{title,sourceKey:'',sourceName:''},episodes};
   }
 }
