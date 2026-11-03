@@ -3,6 +3,8 @@ import { guardRequest } from '@/lib/api-guard';
 import { checkUpstreamAllowed } from '@/lib/ssrf';
 import { fetchUpstream } from '@/lib/fetch-utils';
 import { parseSearchList } from '@/lib/cms-parser';
+import { getEnvSources } from '@/lib/env-sources';
+import { spiderSearch } from '@/lib/spider-adapters';
 
 export const runtime = 'nodejs';
 
@@ -22,12 +24,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '无效的源地址' }, { status: 400 });
   }
 
+  const start = Date.now();
+  const spider = getEnvSources().find(source => source.url.replace(/\/+$/, '') === url &&
+    (source.adapter === 'gulu' || source.adapter === 'appdrama'));
+  if (spider) {
+    try {
+      const list = await spiderSearch(spider, '三体', 1);
+      return NextResponse.json({ ok: true, ms: Date.now() - start, count: list.length });
+    } catch (err) {
+      return NextResponse.json({ ok: false, ms: Date.now() - start,
+        error: err instanceof Error ? err.message : 'Spider 源连接失败' });
+    }
+  }
+
   const verdict = await checkUpstreamAllowed(url);
   if (!verdict.ok) {
     return NextResponse.json({ ok: false, ms: 0, error: verdict.reason });
   }
 
-  const start = Date.now();
   try {
     const res = await fetchUpstream(`${url}?ac=videolist&wd=test`, {
       timeoutMs: 6000,
