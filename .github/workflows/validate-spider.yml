@@ -17,4 +17,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
+      - name: Live upstream search and playback probe
+        continue-on-error: true
+        run: RUN_SPIDER_INTEGRATION=1 npx vitest run src/lib/spider-adapters.integration.test.ts
       - run: PASSWORD=ci-test-password npm run build
