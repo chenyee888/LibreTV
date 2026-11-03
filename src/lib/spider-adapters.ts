@@ -55,7 +55,7 @@ function apiData(buf: Buffer): Buffer {
   if (!f) throw new Error('上游响应缺少 protobuf data 字段');
   return bytes(f);
 }
-function randText(size: number): string {
+function javaHashIndex(value: string): number {\n  let h = 0; for (let i = 0; i < value.length; i++) h = (Math.imul(31, h) + value.charCodeAt(i)) | 0;\n  return (h ^ (h >>> 16)) & 15;\n}\nfunction randText(size: number): string {
   const alphabet = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
   const b = randomBytes(size - 1);
   return Array.from(b, x => alphabet[x % alphabet.length]).join('') + '=';
@@ -114,8 +114,8 @@ class AppDramaClient {
     if (!verdict.ok) throw new Error(`橘汁上游地址不可用：${verdict.reason}`);
     const timestamp = Date.now(); const random = randText(16);
     const request = Buffer.concat([
-      pbVar(1, timestamp), pbBytes(2, random), pbBytes(3, rsaEncrypt(`${timestamp}${random}`, client.cfg.publicKey)),
-      pbBytes(4, randText(16)), pbBytes(5, randText(16)),
+      pbVar(1, timestamp), pbBytes(2, rsaEncrypt(`${timestamp}${random}`, client.cfg.publicKey)),
+      pbBytes(3, randText(16)), pbBytes(4, random), pbBytes(5, randText(16)),
     ]);
     const headers = await client.publicHeaders();
     const response = apiData(await postBytes(`${client.host}/api/v5/find/app/zone`, request, headers));
@@ -149,7 +149,7 @@ class AppDramaClient {
   }
   private requestBody(params: Record<string, string>): Buffer {
     const timestamp = Date.now(); const random = randText(8); const fake = randText(20);
-    const query = Object.entries(params).filter(([,v]) => v !== '').map(([k,v]) => `${k}=${v}`).join('&');
+    const query = Object.entries(params).filter(([,v]) => v !== '').sort((a,b) => javaHashIndex(a[0]) - javaHashIndex(b[0])).map(([k,v]) => `${k}=${v}`).join('&');
     const encrypted = aesEncrypt(Buffer.from(query + timestamp), this.cfg.dataKey, 'ecb').toString('base64');
     const packed = random + encrypted;
     return Buffer.concat([
