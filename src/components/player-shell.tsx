@@ -56,6 +56,8 @@ export interface PlayerSkipApi {
 
 interface PlayerShellProps {
   url: string;
+  /** 上游播放器解析接口返回的自定义请求头 */
+  headers?: Record<string, string>;
   title: string;
   adFilter: boolean;
   autoplayNext: boolean;
@@ -101,6 +103,7 @@ interface PlayerShellProps {
 
 export function PlayerShell({
   url,
+  headers,
   title,
   adFilter,
   autoplayNext,
@@ -136,7 +139,7 @@ export function PlayerShell({
 
   // 始终持有最新 props/回调，避免重建播放器
   const propsRef = useRef({
-    url, title, adFilter, autoplayNext, skipMark, autoSkipSegments,
+    url, headers, title, adFilter, autoplayNext, skipMark, autoSkipSegments,
     pendingStart, onPendingStart, onPlayerApi, onRecordSegment,
     episodeKey, nextUrl, nextEpisodeKey,
     getRestorePosition, onTimeUpdate, onEnded, onPause, onQuality, onRequestSwitchSource,
@@ -214,14 +217,14 @@ export function PlayerShell({
       abrEwmaDefaultEstimate: 500_000,
       appendErrorMaxRetry: 5,
       // 组合 loader：广告过滤（blockAd 随设置）+ 片段缓存命中（cacheEnabled）
-      loader: createHlsLoader(Hls, { blockAd: p.adFilter }) as unknown as HlsConfig['loader'],
+      xhrSetup: p.headers && Object.keys(p.headers).length ? (xhr) => {\n        for (const [name, value] of Object.entries(p.headers || {})) {\n          try { xhr.setRequestHeader(name, value); } catch { /* browser forbids certain headers */ }\n        }\n      } : undefined,\n      loader: createHlsLoader(Hls, { blockAd: p.adFilter }) as unknown as HlsConfig['loader'],
     };
   };
 
   // 当前集预取（episodeKey 缺省 = 关闭，见 ensure 内部 settings.enabled 判断）
   const ensurePrefetch = (mediaUrl: string, currentTime: number, horizonSeconds?: number) => {
     const p = propsRef.current;
-    if (!p.episodeKey) return;
+    if (!p.episodeKey || (p.headers && Object.keys(p.headers).length > 0)) return;
     getVideoPrefetcher().ensure({
       m3u8Url: mediaUrl,
       currentTime,
@@ -429,6 +432,7 @@ export function PlayerShell({
           // （同源 cookie 鉴权，规避 CORS/防盗链/分片被拒）
           if (
             allowProxyFallback &&
+            !(propsRef.current.headers && Object.keys(propsRef.current.headers).length > 0) &&
             !mediaUrl.startsWith('/api/proxy') &&
             (decision.attempt >= 2 || data.details === 'manifestLoadError')
           ) {
