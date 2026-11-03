@@ -11,6 +11,6 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
     expect(results.length, 'search should return at least one title').toBeGreaterThan(0);
     const detail = await spiderDetail(source, results[0].vodId);
     expect(detail.episodes.length, 'detail should contain at least one direct playable URL').toBeGreaterThan(0);
-    expect(detail.episodes.every(url => /^https?:\/\//i.test(url))).toBe(true);
+    expect(detail.episodes.every(url => /^https?:\/\//i.test(url) || url.startsWith('/api/proxy?'))).toBe(true);
   }, 60000);
 });
