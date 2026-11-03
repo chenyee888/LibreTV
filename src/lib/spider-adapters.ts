@@ -375,10 +375,14 @@ class GuluClient {
       if (parsed.token) { token = parsed.token; selectedLine = parsed.line || ''; }
     } catch { /* legacy token */ }
     const prefix = Object.keys(GULU_PREFIX_LABELS).find(k => token.startsWith(k));
-    const label = selectedLine || (prefix ? GULU_PREFIX_LABELS[prefix] : '');
-    if (!label || !isAllowedGuluLine(label)) throw new Error('咕噜没有匹配到允许的播放线路');
-    const template = this.templates[label] || GULU_FALLBACK_TEMPLATES[label];
-    if (!template) throw new Error(`咕噜缺少 ${label} 解析器模板`);
+    // selectedLine 是上游线路名，只用于白名单校验；解析器模板应按播放令牌自身的
+    // TVBox 前缀选择。两者不是同一个命名空间（例如 newxfyun -> xfy- -> 新咕噜4K）。
+    if (!selectedLine || !isAllowedGuluLine(selectedLine)) {
+      throw new Error('咕噜没有匹配到允许的播放线路');
+    }
+    const parserLabel = prefix ? GULU_PREFIX_LABELS[prefix] : selectedLine;
+    const template = this.templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel];
+    if (!template) throw new Error(`咕噜线路 ${selectedLine}（解析器 ${parserLabel}）缺少模板`);
     let value = token;
     const encodedValue = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
     const parseUrl = template + encodedValue;
