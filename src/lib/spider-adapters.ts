@@ -105,11 +105,13 @@ class AppDramaClient {
     if (client.cfg.site) {
       try {
         const remote = JSON.parse(await getText(client.cfg.site));
-        if (typeof remote.domain === 'string' && remote.domain) client.host = remote.domain.replace(/^https?:\/\//, '').replace(/\/$/, '');
+        if (typeof remote.domain === 'string' && remote.domain) client.host = remote.domain.replace(/\/$/, '');
       } catch { /* keep configured host if the remote config is temporarily unavailable */ }
     }
     if (!client.host) throw new Error('橘汁远程配置未返回 domain，暂时无法连接');
     if (!/^https?:\/\//.test(client.host)) client.host = `https://${client.host}`;
+    const verdict = await checkUpstreamAllowed(client.host);
+    if (!verdict.ok) throw new Error(`橘汁上游地址不可用：${verdict.reason}`);
     const timestamp = Date.now(); const random = randText(16);
     const request = Buffer.concat([
       pbVar(1, timestamp), pbBytes(2, random), pbBytes(3, rsaEncrypt(`${timestamp}${random}`, client.cfg.publicKey)),
