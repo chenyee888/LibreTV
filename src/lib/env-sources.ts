@@ -8,9 +8,9 @@ import type { SourceConfig } from './types';
 export function getEnvSources(): SourceConfig[] {
   const raw = process.env.DEFAULT_SOURCES;
   if (!raw || !raw.trim()) return [
-    { key: 'spider_gulu', name: '咕噜', url: 'https://adapter.invalid/gulu', adapter: 'gulu' },
+    { key: 'spider_gulu', name: '咕噜', url: 'http://103.45.132.22:19987/app/bn/v2', adapter: 'gulu' },
     {
-      key: 'spider_orange', name: '橘汁', url: 'https://adapter.invalid/appdrama', adapter: 'appdrama',
+      key: 'spider_orange', name: '橘汁', url: 'http://juziapp.hzhcbkj.cn', adapter: 'appdrama',
       ext: {
         appName: '橘汁',
         publicKey: 'MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCr8SzZhjYy+rsya1K09t8d2K50pWFoBkgUqMpKOiW+3IEVKd4eTdvg9RSOjQ82kypL6R9BnsmrS1V8s4PVDwjQbUtYhTPPC9Hz16qY7rpD6m0d2vr09/UpWQ5uOy9PR0QTrsioveZ+DIe9jc3C+zBCu/kZSY/R8stwJoiitki3gwIDAQAB',
