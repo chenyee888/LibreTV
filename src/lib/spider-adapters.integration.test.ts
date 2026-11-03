@@ -34,7 +34,7 @@ const sources = getEnvSources().filter(source => source.adapter === 'gulu' || so
 
 describe.skipIf(!enabled)('live TVBox Spider integration', () => {
   it.each(sources.map(source => [source.name, source] as const))('%s can search and resolve a playable detail', async (_name, source) => {
-    const results = await spiderSearch(source, '三体', 1);
+    const results = await spiderSearch(source, '嫁金钗', 1);
     expect(results.length, 'search should return at least one title').toBeGreaterThan(0);
     const detail = await spiderDetail(source, results[0].vodId);
     expect(detail.episodes.length, 'detail should contain at least one 4K playable URL').toBeGreaterThan(0);
