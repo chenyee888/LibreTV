@@ -225,6 +225,11 @@ class AppDramaClient {
   }
 }
 
+function upgradeGuluQuality(url: string): string {
+  if (!url.includes('.m3u8')) return url;
+  return url.replace(/\/\d{3,4}k[bB]?\//, '/2000k/').replace(/index_\d+k/, 'index_2000k').replace(/\/720[pP]\//, '/1080p/');
+}
+
 const GULU_GATEWAY = 'http://103.45.132.22:19987/app/bn/v2';
 class GuluClient {
   private session = ''; private key = Buffer.alloc(0); private templates: Record<string,string> = {}; private deviceId = randomBytes(8).toString('hex');
@@ -301,11 +306,31 @@ class GuluClient {
     const fs=pbDecode(data);const title=str(fs.find(x=>x.no===5));const groups=new Map<string,string[]>();
     for(const group of fields(data,75)){
       const g=pbDecode(bytes(group));const source=str(g.find(x=>x.no===1))||'咕噜';
-      for(const ep of g.filter(x=>x.no===2&&x.wire===2)){
-        const e=pbDecode(bytes(ep));const episodeTitle=str(e.find(x=>x.no===4))||`第${num(e.find(x=>x.no===1))}集`;let url=str(e.find(x=>x.no===3));
-        if(!url)continue;
-        if(!/^https?:\/\//i.test(url)){const prefix=Object.keys(this.templates).find(k=>url.startsWith(k));if(prefix){try{const parseUrl=this.templates[prefix]+encodeURIComponent(url);const text=await getText(parseUrl,{'User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)'});url=JSON.parse(text).url||text.match(/"url"\s*:\s*"([^"]+)"/)?.[1]||'';}catch{url='';}}}
-        if(url){const list=groups.get(source)||[];list.push(url);groups.set(source,list);}
+      for (const ep of g.filter(x => x.no === 2 && x.wire === 2)) {
+        const e = pbDecode(bytes(ep));
+        let url = str(e.find(x => x.no === 3));
+        if (!url) continue;
+        if (/^https?:\/\//i.test(url)) {
+          url = upgradeGuluQuality(url);
+        } else {
+          const prefix = Object.keys(this.templates).find(k => url.startsWith(k));
+          if (!prefix) continue;
+          try {
+            let token = url;
+            if ((token.startsWith('CO4K_') || token.startsWith('rose_')) && token.includes('*') && !token.includes('%2B')) {
+              token = token.replace(' ', '*');
+            }
+            const encoded = encodeURIComponent(token).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
+            const text = await getText(this.templates[prefix] + encoded, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+            url = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
+          } catch { url = ''; }
+        }
+        if (url) {
+          const list = groups.get(source) || [];
+          list.push(url);
+          groups.set(source, list);
+        }
+      }
       }
     }
     const episodes=Array.from(groups.values()).flatMap(v=>v);
