@@ -38,6 +38,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
   useFocusTrap(Boolean(item), panelRef);
 
   useEffect(() => setPosterFailed(false), [item?.pic, store.imageProxyMode, store.customImageProxy]);
+  useEffect(() => { setSelectedLine(0); setReversed(false); }, [item?.sourceKey, item?.vodId]);
 
   // 弹窗打开期间锁定背景滚动
   useEffect(() => {
