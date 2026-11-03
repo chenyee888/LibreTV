@@ -333,7 +333,7 @@ class GuluClient {
         }
         if (url) {
           const list = groups.get(source) || [];
-          list.push(url);
+          list.push(toProxyUrl(url, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' }));
           groups.set(source, list);
         }
       }
