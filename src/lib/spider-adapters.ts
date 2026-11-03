@@ -204,23 +204,23 @@ class AppDramaClient {
       year: String(num(first(data, 18)) || ''), area: str(first(data, 1)),
       director: str(first(data, 12)), actor: str(first(data, 25)), remarks: str(first(data, 26)),
     };
+    // 每条 video 记录包含线路名（字段 9）与线路 URL（字段 4）。
+    // VideoDetail 是单一扁平集数表，不能把多个重复线路的全集拼接成数百集。
     const groups = new Map<string, string[]>();
-    const videos = fields(data, 29);
-    for (const vf of videos) {
+    for (const vf of fields(data, 29)) {
       const video = bytes(vf);
-      const source = str(first(video, 10)) || '橘汁';
+      const source = str(first(video, 9)) || '橘汁';
       const path = str(first(video, 4));
       if (!path) continue;
-      let playUrl = path;
-      if (!/\.(mp4|m3u8|flv|mkv|avi|ts|mov|mpd|m4a|wmv)(\?.*)?$/i.test(path)) {
-        const token = Buffer.from(JSON.stringify({ vodPlayFrom: str(first(video, 9)), playUrl: path })).toString('base64');
-        playUrl = `/api/spider-play?source=spider_orange&payload=${encodeURIComponent(token)}`;
-      }
-      const list = groups.get(source) || []; list.push(playUrl); groups.set(source, list);
+      const token = Buffer.from(JSON.stringify({ vodPlayFrom: source, playUrl: path })).toString('base64');
+      const playUrl = `/api/spider-play?source=spider_orange&payload=${encodeURIComponent(token)}`;
+      const list = groups.get(source) || [];
+      list.push(playUrl);
+      groups.set(source, list);
     }
-    const from = Array.from(groups.keys()); const urls = Array.from(groups.values()).map(x => x.join('#'));
-    if (!from.length) throw new Error('橘汁详情中没有可用播放线路');
-    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes: urls.flatMap(x => x.split('#')) };
+    const episodes = groups.values().next().value as string[] | undefined;
+    if (!episodes?.length) throw new Error('橘汁详情中没有可用播放线路');
+    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes };
   }
 }
 
