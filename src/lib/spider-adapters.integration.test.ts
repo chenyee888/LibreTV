@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getEnvSources } from './env-sources';
-import { is4kGuluToken, is4kLineLabel, isAllowedOrangeLine, spiderDetail, spiderResolvePlay, spiderSearch } from './spider-adapters';
+import { is4kGuluToken, is4kLineLabel, isAllowedGuluLine, isAllowedOrangeLine, spiderDetail, spiderResolvePlay, spiderSearch } from './spider-adapters';
 
 async function probeMediaUrl(proxyOrDirectUrl: string) {
   const parsed = new URL(proxyOrDirectUrl, 'https://libretv.test');
@@ -42,7 +42,7 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
       detail = await spiderDetail(source, match.vodId);
     } catch (err) {
       // 用户要求严格 4K only：当前标题没有 4K 线路时，正确行为是拒绝回退到普通线路。
-      expect(err instanceof Error ? err.message : String(err)).toContain('4K');
+      expect(err instanceof Error ? err.message : String(err)).toContain('线路');
       console.info(`${source.name}: ${match.name} 当前没有 4K 线路，已正确拒绝普通线路回退`);
       return;
     }
@@ -58,7 +58,9 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
       for (const episode of detail.episodes) {
         if (!episode.startsWith('/api/spider-play?')) continue;
         const params = new URL(episode, 'https://libretv.test').searchParams;
-        expect(is4kGuluToken(params.get('token') || ''), 'Gulu episode must use a 4K token').toBe(true);
+        const packed = params.get('token') || '';
+        const selected = JSON.parse(Buffer.from(packed, 'base64url').toString('utf8')) as { line?: string; token?: string };
+        expect(isAllowedGuluLine(selected.line || ''), 'Gulu episode must belong to the selected upstream lines').toBe(true);
       }
     }
     const pending = detail.episodes.find(url => url.startsWith('/api/spider-play?'));

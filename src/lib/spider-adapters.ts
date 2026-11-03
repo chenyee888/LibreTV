@@ -220,7 +220,7 @@ class AppDramaClient {
     }
     const episodeGroups = Array.from(groups.entries()).map(([name, episodes]) => ({ name, episodes }));
     const episodes = episodeGroups[0]?.episodes || [];
-    if (!episodeGroups.length) throw new Error(`橘汁详情没有用户指定的 4K 线路（自建4K-3 / VIP4K）；上游线路：${Array.from(new Set(fields(data, 29).map(vf => str(first(bytes(vf), 9)) || '未命名'))).join('、') || '无'}`);
+    if (!episodeGroups.length) throw new Error(`橘汁详情没有用户指定的线路（JD4K / SH4K / qsvip）；上游线路：${Array.from(new Set(fields(data, 29).map(vf => str(first(bytes(vf), 9)) || '未命名'))).join('、') || '无'}`);
     return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes, episodeGroups };
   }
 }
@@ -245,13 +245,19 @@ export function is4kLineLabel(label: string): boolean {
   return /(?:4k|2160\s*p?|uhd|超高清)/i.test(label);
 }
 
-/** 橘汁仅保留用户指定的两条线路，名称做空白归一化但不模糊匹配。 */
+/** 橘汁仅保留用户指定的 JD4K、SH4K、qsvip 三条线路。 */
 export function isAllowedOrangeLine(label: string): boolean {
   const normalized = label.replace(/[\s_-]+/g, '').toLowerCase();
-  return normalized === '自建4k3' || normalized === 'vip4k';
+  return ['jd4k', 'sh4k', 'qsvip'].includes(normalized);
 }
 
-/** 咕噜的 4K 播放令牌有独立前缀；其余解析器线路一律舍弃。 */
+/** 咕噜只保留用户指定的四条上游线路。 */
+export function isAllowedGuluLine(label: string): boolean {
+  const normalized = label.replace(/[\s_-]+/g, '').toLowerCase();
+  return ['jd4k', 'newxfyun', 'nb4k', 'qsvip'].includes(normalized);
+}
+
+/** 旧格式令牌校验保留作兼容测试；实际线路由上游线路名白名单控制。 */
 export function is4kGuluToken(token: string): boolean {
   return token.startsWith('CO4K_') || token.startsWith('rose_') || token.startsWith('xfy-');
 }
@@ -361,18 +367,25 @@ class GuluClient {
     }
     return out.slice(0, 100);
   }
-  async resolvePlay(token: string): Promise<string> {
+  async resolvePlay(encoded: string): Promise<string> {
+    let token = encoded;
+    let selectedLine = '';
+    try {
+      const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { line?: string; token?: string };
+      if (parsed.token) { token = parsed.token; selectedLine = parsed.line || ''; }
+    } catch { /* legacy token */ }
     const prefix = Object.keys(GULU_PREFIX_LABELS).find(k => token.startsWith(k));
-    if (!prefix) throw new Error('咕噜没有匹配到播放解析器');
-    const label = GULU_PREFIX_LABELS[prefix];
-    const template = this.templates[label] || GULU_FALLBACK_TEMPLATES[label];
-    if (!template) throw new Error(`咕噜缺少 ${label} 解析器模板`);
-    let value = token;
-    if ((value.startsWith('CO4K_') || value.startsWith('rose_')) && value.includes('*') && !value.includes('%2B')) {
-      value = value.replace(' ', '*');
+    // selectedLine 是上游线路名，只用于白名单校验；解析器模板应按播放令牌自身的
+    // TVBox 前缀选择。两者不是同一个命名空间（例如 newxfyun -> xfy- -> 新咕噜4K）。
+    if (!selectedLine || !isAllowedGuluLine(selectedLine)) {
+      throw new Error('咕噜没有匹配到允许的播放线路');
     }
-    const encoded = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-    const parseUrl = template + encoded;
+    const parserLabel = prefix ? GULU_PREFIX_LABELS[prefix] : selectedLine;
+    const template = this.templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel];
+    if (!template) throw new Error(`咕噜线路 ${selectedLine}（解析器 ${parserLabel}）缺少模板`);
+    const value = token;
+    const encodedValue = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
+    const parseUrl = template + encodedValue;
     const verdict = await checkUpstreamAllowed(parseUrl);
     if (!verdict.ok) throw new Error(verdict.reason);
     const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
@@ -388,7 +401,7 @@ class GuluClient {
     for(const group of fields(data,75)){
       const g=pbDecode(bytes(group));const source=str(g.find(x=>x.no===1))||'咕噜';
       upstreamLineLabels.add(source);
-      if (!is4kLineLabel(source)) continue;
+      if (!isAllowedGuluLine(source)) continue;
       for (const ep of g.filter(x => x.no === 2 && x.wire === 2)) {
         const e = pbDecode(bytes(ep));
         let url = str(e.find(x => x.no === 3));
@@ -398,9 +411,8 @@ class GuluClient {
           if (!directStream) continue;
           url = toProxyUrl(url, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
         } else {
-          const supported = is4kGuluToken(url);
-          if (!supported) continue;
-          url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(url)}`;
+          const packed = Buffer.from(JSON.stringify({ line: source, token: url })).toString('base64url');
+          url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(packed)}`;
         }
         if (url) {
           const list = groups.get(source) || [];
@@ -411,7 +423,7 @@ class GuluClient {
     }
     const episodeGroups = Array.from(groups.entries()).map(([name, episodes]) => ({ name, episodes }));
     const episodes = episodeGroups[0]?.episodes || [];
-    if(!episodeGroups.length)throw new Error(`咕噜详情没有明确标注为 4K 的播放线路；上游线路：${Array.from(upstreamLineLabels).join('、') || '无'}`);
+    if(!episodeGroups.length)throw new Error(`咕噜详情没有用户指定的线路（JD4K / newxfyun / NB4K / qsvip）；上游线路：${Array.from(upstreamLineLabels).join('、') || '无'}`);
     return {videoInfo:{title,sourceKey:'',sourceName:''},episodes,episodeGroups};
   }
 }

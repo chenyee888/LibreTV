@@ -198,7 +198,7 @@ export function DetailModal({ item, onClose }: { item: SearchResultItem | null; 
                 </div>
               </div>
 
-              {groups.length > 1 && (
+              {groups.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-3" aria-label="播放线路">
                   {groups.map((group, index) => (
                     <button key={group.name} className={cn('btn-sm rounded-md px-3 py-1.5', selectedLine === index ? 'btn-primary' : 'btn-ghost')} onClick={() => { setSelectedLine(index); setReversed(false); }}>
