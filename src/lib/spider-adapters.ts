@@ -59,8 +59,9 @@ function randText(size: number): string {
   const b = randomBytes(size - 1);
   return Array.from(b, x => alphabet[x % alphabet.length]).join('') + '=';
 }
-function aesEncrypt(data: Buffer, key: string, mode: 'ecb' | 'cbc', iv?: string): Buffer {
-  const cipher = createCipheriv(mode === 'ecb' ? `aes-${key.length * 8}-ecb` : `aes-${key.length * 8}-cbc`, Buffer.from(key), mode === 'cbc' ? Buffer.from(iv || '') : null);
+function aesEncrypt(data: Buffer, key: string, mode: 'ecb' | 'cbc', iv?: Buffer): Buffer {
+  const algorithm = mode === 'ecb' ? `aes-${key.length * 8}-ecb` : `aes-${key.length * 8}-cbc`;
+  const cipher = createCipheriv(algorithm, Buffer.from(key), mode === 'ecb' ? null : (iv || Buffer.alloc(16)));
   return Buffer.concat([cipher.update(data), cipher.final()]);
 }
 function aesDecrypt(data: Buffer, key: Buffer, iv: Buffer): Buffer {
