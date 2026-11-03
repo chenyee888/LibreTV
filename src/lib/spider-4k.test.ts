@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { is4kGuluToken, is4kLineLabel, isAllowedOrangeLine } from './spider-adapters';
+import { is4kGuluToken, is4kLineLabel, isAllowedGuluLine, isAllowedOrangeLine } from './spider-adapters';
 
 describe('4K-only Spider line selection', () => {
   it.each(['咖啡4K', '新咕噜4K', '2160P', 'UHD', '超高清'])('accepts explicit 4K label: %s', label => {
@@ -19,11 +19,11 @@ describe('4K-only Spider line selection', () => {
   });
 });
 
-describe('Orange Juice allowed 4K lines', () => {
-  it.each(['自建4K-3', '自建 4K-3', 'VIP4K', 'VIP 4K'])('keeps requested line: %s', label => {
+describe('Gulu selected upstream lines', () => {\n  it.each(['JD4K', 'newxfyun', 'NB4K', 'qsvip'])('keeps requested line: %s', label => {\n    expect(isAllowedGuluLine(label)).toBe(true);\n  });\n  it.each(['pylg', 'KZNB', 'covip', 'rose', 'youku', 'bfzym3u8'])('rejects other line: %s', label => {\n    expect(isAllowedGuluLine(label)).toBe(false);\n  });\n});\n\ndescribe('Orange Juice selected upstream lines', () => {
+  it.each(['JD4K', 'SH4K', 'qsvip'])('keeps requested line: %s', label => {
     expect(isAllowedOrangeLine(label)).toBe(true);
   });
-  it.each(['qq', 'bilibili', '自建4K-2', 'VIP', '1080P'])('rejects all other lines: %s', label => {
+  it.each(['pylg', 'tocyyds', 'newxfyun', 'VIP4K', 'vod_1080'])('rejects all other lines: %s', label => {
     expect(isAllowedOrangeLine(label)).toBe(false);
   });
 });
