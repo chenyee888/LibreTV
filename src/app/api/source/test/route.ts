@@ -25,7 +25,7 @@ export async function POST(req: Request) {
   }
 
   const start = Date.now();
-  const spider = getEnvSources().find(source => source.url.replace(/\\/+$/, '') === url &&
+  const spider = getEnvSources().find(source => source.url.replace(/\/+$/, '') === url &&
     (source.adapter === 'gulu' || source.adapter === 'appdrama'));
   if (spider) {
     try {
