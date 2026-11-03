@@ -205,7 +205,6 @@ class AppDramaClient {
       director: str(first(data, 12)), actor: str(first(data, 25)), remarks: str(first(data, 26)),
     };
     const groups = new Map<string, string[]>();
-    const episodeHeaders: Record<string, Record<string,string>> = {};
     const videos = fields(data, 29);
     for (const vf of videos) {
       const video = bytes(vf);
@@ -227,7 +226,7 @@ class AppDramaClient {
     }
     const from = Array.from(groups.keys()); const urls = Array.from(groups.values()).map(x => x.join('#'));
     if (!from.length) throw new Error('橘汁详情中没有可用播放线路');
-    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes: urls.flatMap(x => x.split('#')), episodeHeaders };
+    return { videoInfo: { ...info, sourceKey: '', sourceName: '' }, episodes: urls.flatMap(x => x.split('#')) };
   }
 }
 
