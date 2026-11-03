@@ -367,18 +367,21 @@ class GuluClient {
     }
     return out.slice(0, 100);
   }
-  async resolvePlay(token: string): Promise<string> {
+  async resolvePlay(encoded: string): Promise<string> {
+    let token = encoded;
+    let selectedLine = '';
+    try {
+      const parsed = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as { line?: string; token?: string };
+      if (parsed.token) { token = parsed.token; selectedLine = parsed.line || ''; }
+    } catch { /* legacy token */ }
     const prefix = Object.keys(GULU_PREFIX_LABELS).find(k => token.startsWith(k));
-    if (!prefix) throw new Error('咕噜没有匹配到播放解析器');
-    const label = GULU_PREFIX_LABELS[prefix];
+    const label = selectedLine || (prefix ? GULU_PREFIX_LABELS[prefix] : '');
+    if (!label || !isAllowedGuluLine(label)) throw new Error('咕噜没有匹配到允许的播放线路');
     const template = this.templates[label] || GULU_FALLBACK_TEMPLATES[label];
     if (!template) throw new Error(`咕噜缺少 ${label} 解析器模板`);
     let value = token;
-    if ((value.startsWith('CO4K_') || value.startsWith('rose_')) && value.includes('*') && !value.includes('%2B')) {
-      value = value.replace(' ', '*');
-    }
-    const encoded = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-    const parseUrl = template + encoded;
+    const encodedValue = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
+    const parseUrl = template + encodedValue;
     const verdict = await checkUpstreamAllowed(parseUrl);
     if (!verdict.ok) throw new Error(verdict.reason);
     const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
