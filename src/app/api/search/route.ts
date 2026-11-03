@@ -4,6 +4,7 @@ import { cmsRequestHeaders, filterAdultResults, filterRelevantResults, normalize
 import { fetchUpstream, getCache, setCache } from '@/lib/fetch-utils';
 import { checkUpstreamAllowed } from '@/lib/ssrf';
 import type { SearchResponse, SearchStreamEvent, SourceConfig, SourceSearchOutcome } from '@/lib/types';
+import { spiderSearch } from '@/lib/spider-adapters';
 
 export const runtime = 'nodejs';
 
@@ -62,6 +63,15 @@ async function searchSource(source: SourceConfig, wd: string): Promise<SourceSea
     ...outcome,
     ms: Date.now() - start,
   });
+
+  if (source.adapter === 'gulu' || source.adapter === 'appdrama') {
+    if ((source.adapter === 'gulu' && source.key !== 'spider_gulu') ||
+        (source.adapter === 'appdrama' && source.key !== 'spider_orange')) {
+      return finish({ sourceKey: source.key, ok: false, list: [], error: '不允许的 Spider 源配置' });
+    }
+    const list = await spiderSearch(source, wd, 1);
+    return finish({ sourceKey: source.key, ok: true, list });
+  }
 
   if (!/^https?:\/\//.test(source.url || '')) {
     return finish({ sourceKey: source.key, ok: false, list: [], error: '无效的源地址' });
