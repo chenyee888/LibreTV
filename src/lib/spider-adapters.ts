@@ -253,7 +253,7 @@ export function isAllowedOrangeLine(label: string): boolean {
 
 /** 咕噜只保留用户指定的四条上游线路。 */
 export function isAllowedGuluLine(label: string): boolean {
-  const normalized = label.replace(/[\\s_-]+/g, '').toLowerCase();
+  const normalized = label.replace(/[\s_-]+/g, '').toLowerCase();
   return ['jd4k', 'newxfyun', 'nb4k', 'qsvip'].includes(normalized);
 }
 
@@ -407,9 +407,8 @@ class GuluClient {
           if (!directStream) continue;
           url = toProxyUrl(url, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
         } else {
-          const supported = is4kGuluToken(url);
-          if (!supported) continue;
-          url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(url)}`;
+          const packed = Buffer.from(JSON.stringify({ line: source, token: url })).toString('base64url');
+          url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(packed)}`;
         }
         if (url) {
           const list = groups.get(source) || [];
