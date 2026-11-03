@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
-import { rewriteM3u8, LIVE_STREAM_BASE, PROXY_BASE } from '@/lib/m3u8';
+import { rewriteM3u8, LIVE_STREAM_BASE, PROXY_BASE, isM3u8Url } from '@/lib/m3u8';
 
 /**
  * 代理目标地址的两种传入形式：
@@ -130,7 +130,7 @@ export async function handleProxyRequest(
   const contentType = response.headers.get('content-type') || '';
   const isM3u8 =
     contentType.includes('mpegurl') || contentType.includes('x-mpegurl') ||
-    targetUrl.toLowerCase().split('?')[0].split('#')[0].endsWith('.m3u8');
+    isM3u8Url(targetUrl);
 
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
   if (isM3u8) {
@@ -231,7 +231,7 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   const contentType = response.headers.get('content-type') || '';
   const isM3u8 =
     contentType.includes('mpegurl') || contentType.includes('x-mpegurl') ||
-    targetUrl.toLowerCase().split('?')[0].endsWith('.m3u8');
+    isM3u8Url(targetUrl);
 
   // HLS manifest：重写变体/分片地址指向本路由，保证后续请求同源同鉴权。
   // 关键：以重定向后的最终 URL 为 base 解析相对地址（gslb 调度源 302 后路径会变）
