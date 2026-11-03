@@ -183,7 +183,6 @@ class AppDramaClient {
   async resolvePlay(encoded: string): Promise<{ url: string; headers?: Record<string,string> }> {
     const payload = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as Record<string,string>;
     const data = await this.api('/api/proto/v5/videoUsableUrl', payload);
-    const play = pbDecode(data);
     const url = str(first(data, 1));
     const headers: Record<string,string> = {};
     for (const entry of fields(data, 6)) {
