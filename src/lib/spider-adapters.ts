@@ -292,30 +292,47 @@ class GuluClient {
     const data=await this.call(3,61,payload);
     return this.parseList(data);
   }
-  private parseList(data:Buffer):SearchResultItem[]{
-    const out:SearchResultItem[]=[];
-    const parseOne=(b:Buffer)=>{
-      const fs=pbDecode(b);const id=String(num(fs.find(x=>x.no===1)));const name=str(fs.find(x=>x.no===3));
-      if(id&&name)out.push({sourceKey:'',sourceName:'',vodId:id,name,pic:str(fs.find(x=>x.no===6)),remarks:str(fs.find(x=>x.no===11))||str(fs.find(x=>x.no===9)),typeName:str(fs.find(x=>x.no===9))});
+  private parseList(data: Buffer): SearchResultItem[] {
+    const out: SearchResultItem[] = [];
+    const parseOne = (item: Buffer) => {
+      const fs = pbDecode(item);
+      const idField = fs.find(x => x.no === 1 && x.wire === 0);
+      const nameField = fs.find(x => x.no === 3 && x.wire === 2);
+      if (!idField || !nameField) return;
+      const remarksField = fs.find(x => x.no === 11 && x.wire === 2) ||
+        fs.find(x => x.no === 9 && x.wire === 2);
+      out.push({
+        sourceKey: '', sourceName: '',
+        vodId: String(num(idField)),
+        name: str(nameField),
+        pic: str(fs.find(x => x.no === 6 && x.wire === 2)),
+        remarks: str(remarksField),
+        year: String(num(fs.find(x => x.no === 2 && x.wire === 0)) || ''),
+      });
     };
-    for(const f of data.length?pbDecode(data):[]){if(f.wire!==2)continue;const b=bytes(f);const nested=pbDecode(b);const items=nested.filter(x=>x.no===66&&x.wire===2);if(items.length){for(const item of items)parseOne(bytes(item));}else if(nested.some(x=>x.no===2&&x.wire===0))parseOne(b);else for(const item of nested.filter(x=>x.no===3&&x.wire===2))parseOne(bytes(item));}
-    return out.slice(0,100);
-  }
-  async resolvePlay(token: string): Promise<string> {
-    const prefix = Object.keys(this.templates).find(k => token.startsWith(k));
-    if (!prefix) throw new Error('咕噜没有匹配到播放解析器');
-    let value = token;
-    if ((value.startsWith('CO4K_') || value.startsWith('rose_')) && value.includes('*') && !value.includes('%2B')) {
-      value = value.replace(' ', '*');
+
+    for (const outer of pbDecode(data)) {
+      if (outer.wire !== 2) continue;
+      const blob = bytes(outer);
+      if (blob.length < 30) continue;
+      try {
+        const nested = pbDecode(blob);
+        const items66 = nested.filter(x => x.no === 66 && x.wire === 2);
+        if (items66.length) {
+          for (const item of items66) {
+            try { parseOne(bytes(item)); } catch { /* ignore malformed item */ }
+          }
+        } else if (nested.some(x => x.no === 2 && x.wire === 0)) {
+          parseOne(blob);
+        } else {
+          for (const item of nested.filter(x => x.no === 3 && x.wire === 2 && bytes(x).length > 30)) {
+            try { parseOne(bytes(item)); } catch { /* ignore malformed item */ }
+          }
+        }
+      } catch { /* skip non-result protobuf fields */ }
+      if (out.length >= 100) break;
     }
-    const encoded = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-    const parseUrl = this.templates[prefix] + encoded;
-    const verdict = await checkUpstreamAllowed(parseUrl);
-    if (!verdict.ok) throw new Error(verdict.reason);
-    const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
-    const url = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
-    if (!url) throw new Error('咕噜解析器没有返回播放地址');
-    return toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+    return out.slice(0, 100);
   }
   async detail(id:string):Promise<VideoDetail>{
     const data=await this.call(3,62,Buffer.concat([pbVar(1,BigInt(id)),pbBytes(4,'APP_PLATFORM_ANDROID_TV'),pbVar(5,0)]));
