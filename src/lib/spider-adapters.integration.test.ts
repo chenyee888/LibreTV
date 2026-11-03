@@ -12,9 +12,11 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
     const detail = await spiderDetail(source, results[0].vodId);
     expect(detail.episodes.length, 'detail should contain at least one direct playable URL').toBeGreaterThan(0);
     const pending = detail.episodes.find(url => url.startsWith('/api/spider-play?'));
+    console.log('Spider detail sample:', source.name, detail.episodes.slice(0, 3));
     if (pending) {
       const params = new URL(pending, 'https://libretv.test').searchParams;
       const token = params.get('payload') || params.get('token') || '';
+      console.log('Spider play token:', source.name, token.slice(0, 100));
       const resolved = await spiderResolvePlay(source, token);
       expect(resolved.startsWith('/api/proxy?')).toBe(true);
     } else {
