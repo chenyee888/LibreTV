@@ -20,4 +20,6 @@ jobs:
       - run: npm test
       - name: Live upstream 4K playback probe
         run: RUN_SPIDER_INTEGRATION=1 npx vitest run src/lib/spider-adapters.integration.test.ts
-      - run: PASSWORD=ci-test-password npm run build
+      - name: Build
+        if: always()
+        run: PASSWORD=ci-test-password npm run build
