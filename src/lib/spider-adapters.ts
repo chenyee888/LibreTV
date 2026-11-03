@@ -206,7 +206,7 @@ class AppDramaClient {
         const token = Buffer.from(JSON.stringify({ vodPlayFrom: str(first(video, 9)), playUrl: path })).toString('base64');
         try { playUrl = (await this.resolvePlay(token)).url; } catch { continue; }
       }
-      const list = groups.get(source) || []; list.push(`${title}$${playUrl}`); groups.set(source, list);
+      const list = groups.get(source) || []; list.push(playUrl); groups.set(source, list);
     }
     const from = Array.from(groups.keys()); const urls = Array.from(groups.values()).map(x => x.join('#'));
     if (!from.length) throw new Error('橘汁详情中没有可用播放线路');
@@ -294,7 +294,7 @@ class GuluClient {
         const e=pbDecode(bytes(ep));const episodeTitle=str(e.find(x=>x.no===4))||`第${num(e.find(x=>x.no===1))}集`;let url=str(e.find(x=>x.no===3));
         if(!url)continue;
         if(!/^https?:\/\//i.test(url)){const prefix=Object.keys(this.templates).find(k=>url.startsWith(k));if(prefix){try{const parseUrl=this.templates[prefix]+encodeURIComponent(url);const text=await getText(parseUrl,{'User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)'});url=JSON.parse(text).url||text.match(/"url"\s*:\s*"([^"]+)"/)?.[1]||'';}catch{url='';}}}
-        if(url){const list=groups.get(source)||[];list.push(`${episodeTitle}$${url}`);groups.set(source,list);}
+        if(url){const list=groups.get(source)||[];list.push(url);groups.set(source,list);}
       }
     }
     const episodes=Array.from(groups.values()).flatMap(v=>v);
