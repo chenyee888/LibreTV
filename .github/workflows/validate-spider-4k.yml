@@ -1,0 +1,23 @@
+name: Validate Spider 4K-only playback
+
+on:
+  push:
+    branches: [fix/spider-4k-only-playback]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Live upstream 4K playback probe
+        run: RUN_SPIDER_INTEGRATION=1 npx vitest run src/lib/spider-adapters.integration.test.ts
+      - run: PASSWORD=ci-test-password npm run build
