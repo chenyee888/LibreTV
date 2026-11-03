@@ -224,7 +224,7 @@ class GuluClient {
   private async handshake(): Promise<void> {
     const ecdh = createECDH('prime256v1'); ecdh.generateKeys();
     const pub = ecdh.getPublicKey(undefined, 'uncompressed');
-    const key = randomBytes(32).toString('hex'); const iv = randomBytes(16);
+    const key = randomBytes(16).toString('hex'); const iv = randomBytes(16);
     const init = Buffer.concat([pbBytes(1, pub), pbBytes(2, '1.0.0'), pbBytes(3, Buffer.concat([pbVar(1,1),pbVar(2,1),pbVar(3,1)]))]);
     const encrypted = aesEncrypt(deflateRawSync(init, { level: 5 }), key, 'cbc', iv);
     const body = Buffer.concat([iv, encrypted]).toString('base64');
