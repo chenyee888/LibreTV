@@ -212,7 +212,11 @@ class AppDramaClient {
       let playUrl = path;
       if (!/\.(mp4|m3u8|flv|mkv|avi|ts|mov|mpd|m4a|wmv)(\?.*)?$/i.test(path)) {
         const token = Buffer.from(JSON.stringify({ vodPlayFrom: str(first(video, 9)), playUrl: path })).toString('base64');
-        try {\n          const resolved = await this.resolvePlay(token);\n          playUrl = resolved.url;\n          if (resolved.headers && Object.keys(resolved.headers).length) episodeHeaders[playUrl] = resolved.headers;\n        } catch { continue; }
+        try {
+          const resolved = await this.resolvePlay(token);
+          playUrl = resolved.url;
+          if (resolved.headers && Object.keys(resolved.headers).length) episodeHeaders[playUrl] = resolved.headers;
+        } catch { continue; }
       }
       const list = groups.get(source) || []; list.push(playUrl); groups.set(source, list);
     }
