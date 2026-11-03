@@ -326,8 +326,12 @@ class GuluClient {
               token = token.replace(' ', '*');
             }
             const encoded = encodeURIComponent(token).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-            const text = await getText(this.templates[prefix] + encoded, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+            const parseUrl = this.templates[prefix] + encoded;
+            const verdict = await checkUpstreamAllowed(parseUrl);
+            if (!verdict.ok) throw new Error(verdict.reason);
+            const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
             url = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
+            if (url) url = upgradeGuluQuality(url);
           } catch { url = ''; }
         }
         if (url) {
