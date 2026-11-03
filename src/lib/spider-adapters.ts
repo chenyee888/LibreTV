@@ -381,6 +381,8 @@ class GuluClient {
         if (/^https?:\/\//i.test(url)) {
           url = toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
         } else {
+          const supported = Object.keys(GULU_PREFIX_LABELS).some(prefix => url.startsWith(prefix));
+          if (!supported) continue;
           url = `/api/spider-play?source=spider_gulu&token=${encodeURIComponent(url)}`;
         }
         if (url) {
