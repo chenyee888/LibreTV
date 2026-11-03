@@ -117,7 +117,8 @@ function WatchContent() {
     const groups = detailQuery.data?.episodeGroups;
     return groups?.length ? (groups[Math.min(lineParam, groups.length - 1)]?.episodes ?? []) : (detailQuery.data?.episodes ?? []);
   }, [detailQuery.data, lineParam]);
-  const videoTitle = titleParam || detailQuery.data?.videoInfo?.title || '未知视频';\n  const selectedLineName = detailQuery.data?.episodeGroups?.[lineParam]?.name || '';
+  const videoTitle = titleParam || detailQuery.data?.videoInfo?.title || '未知视频';
+  const selectedLineName = detailQuery.data?.episodeGroups?.[lineParam]?.name || '';
 
   // 当前播放地址：优先取剧集列表中的当前集，其次直连 URL 参数
   const currentUrl = useMemo(() => {
