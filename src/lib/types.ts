@@ -46,8 +46,6 @@ export interface VideoInfo {
 
 export interface VideoDetail {
   episodes: string[];
-  /** 按播放 URL 关联的上游请求头（部分 AppDrama 线路需要） */
-  episodeHeaders?: Record<string, Record<string, string>>;
   videoInfo: VideoInfo;
 }
 
