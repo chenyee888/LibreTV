@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { getEnvSources } from './env-sources';
-import { spiderDetail, spiderResolvePlay, spiderSearch } from './spider-adapters';
+import { is4kGuluToken, is4kLineLabel, spiderDetail, spiderResolvePlay, spiderSearch } from './spider-adapters';
 
 async function probeMediaUrl(proxyOrDirectUrl: string) {
   const parsed = new URL(proxyOrDirectUrl, 'https://libretv.test');
@@ -37,7 +37,21 @@ describe.skipIf(!enabled)('live TVBox Spider integration', () => {
     const results = await spiderSearch(source, '三体', 1);
     expect(results.length, 'search should return at least one title').toBeGreaterThan(0);
     const detail = await spiderDetail(source, results[0].vodId);
-    expect(detail.episodes.length, 'detail should contain at least one direct playable URL').toBeGreaterThan(0);
+    expect(detail.episodes.length, 'detail should contain at least one 4K playable URL').toBeGreaterThan(0);
+    if (source.adapter === 'appdrama') {
+      for (const episode of detail.episodes) {
+        const params = new URL(episode, 'https://libretv.test').searchParams;
+        const token = params.get('payload') || '';
+        const decoded = JSON.parse(Buffer.from(token, 'base64').toString('utf8')) as { vodPlayFrom?: string };
+        expect(is4kLineLabel(decoded.vodPlayFrom || ''), 'Orange Juice episode must belong to a 4K line').toBe(true);
+      }
+    } else {
+      for (const episode of detail.episodes) {
+        if (!episode.startsWith('/api/spider-play?')) continue;
+        const params = new URL(episode, 'https://libretv.test').searchParams;
+        expect(is4kGuluToken(params.get('token') || ''), 'Gulu episode must use a 4K token').toBe(true);
+      }
+    }
     const pending = detail.episodes.find(url => url.startsWith('/api/spider-play?'));
     if (pending) {
       const params = new URL(pending, 'https://libretv.test').searchParams;
