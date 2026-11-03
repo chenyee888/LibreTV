@@ -379,6 +379,8 @@ class GuluClient {
         let url = str(e.find(x => x.no === 3));
         if (!url) continue;
         if (/^https?:\/\//i.test(url)) {
+          const directStream = /\.m3u8?(?:[?#].*)?$|\.mp4(?:[?#].*)?$|\.flv(?:[?#].*)?$|\.ts(?:[?#].*)?$|\.mpd(?:[?#].*)?$|\.m4a(?:[?#].*)?$|\.mov(?:[?#].*)?$|\.mkv(?:[?#].*)?$|\.avi(?:[?#].*)?$|\.wmv(?:[?#].*)?$|m\.php(?:[?#].*)?$/i.test(url);
+          if (!directStream) continue;
           url = toProxyUrl(upgradeGuluQuality(url), { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
         } else {
           const supported = Object.keys(GULU_PREFIX_LABELS).some(prefix => url.startsWith(prefix));
