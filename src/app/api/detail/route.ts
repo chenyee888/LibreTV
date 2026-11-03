@@ -4,6 +4,7 @@ import { cmsRequestHeaders, parseDetail, parseDetailPageHtml } from '@/lib/cms-p
 import { fetchUpstream, getCache, setCache } from '@/lib/fetch-utils';
 import { checkUpstreamAllowed } from '@/lib/ssrf';
 import type { SourceConfig, VideoDetail } from '@/lib/types';
+import { spiderDetail } from '@/lib/spider-adapters';
 
 export const runtime = 'nodejs';
 
@@ -39,6 +40,23 @@ export async function GET(req: Request) {
   }
   if (!source) {
     return NextResponse.json({ error: '无效的点播源配置' }, { status: 400 });
+  }
+
+  if (source.adapter === 'gulu' || source.adapter === 'appdrama') {
+    if ((source.adapter === 'gulu' && source.key !== 'spider_gulu') ||
+        (source.adapter === 'appdrama' && source.key !== 'spider_orange')) {
+      return NextResponse.json({ error: '不允许的 Spider 源配置' }, { status: 400 });
+    }
+    try {
+      const spiderKey = `spider-detail:${source.key}:${id}`;
+      const cachedSpider = getCache<VideoDetail>(spiderKey);
+      if (cachedSpider) return NextResponse.json(cachedSpider);
+      const detail = await spiderDetail(source, id);
+      setCache(spiderKey, detail, DETAIL_CACHE_TTL);
+      return NextResponse.json(detail);
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : 'Spider 详情获取失败' }, { status: 502 });
+    }
   }
 
   try {
