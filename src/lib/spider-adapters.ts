@@ -250,7 +250,7 @@ class GuluClient {
     const encrypted = aesEncrypt(deflateSync(init, { level: 5 }), key, 'cbc', iv);
     const body = Buffer.concat([iv, encrypted]).toString('base64');
     const res = await fetch(GULU_GATEWAY, { method:'POST', headers:{
-      'Content-Type':'application/x-protobuf','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
+      'Content-Type':'text/plain','User-Agent':'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)',
       'X-Player-Page-Protection':'1','X-Handshake-Key':key,
     }, body, signal:AbortSignal.timeout(18000) });
     if (!res.ok) throw new Error(`咕噜握手 HTTP ${res.status}`);
