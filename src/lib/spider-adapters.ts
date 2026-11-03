@@ -84,6 +84,10 @@ async function postBytes(url: string, body: Buffer, headers: Record<string, stri
   if (!res.ok) throw new Error(`上游 HTTP ${res.status}`);
   return Buffer.from(await res.arrayBuffer());
 }
+function toProxyUrl(url: string, headers: Record<string, string>): string {
+  const token = Buffer.from(JSON.stringify(headers)).toString('base64url');
+  return `/api/proxy?headers=${encodeURIComponent(token)}&url=${encodeURIComponent(url)}`;
+}
 async function getText(url: string, headers: Record<string, string> = {}): Promise<string> {
   const res = await fetch(url, { headers, redirect: 'follow', signal: AbortSignal.timeout(12000) });
   if (!res.ok) throw new Error(`上游 HTTP ${res.status}`);
@@ -215,8 +219,7 @@ class AppDramaClient {
           const resolved = await this.resolvePlay(token);
           playUrl = resolved.url;
           if (resolved.headers && Object.keys(resolved.headers).length) {
-            const headerToken = Buffer.from(JSON.stringify(resolved.headers)).toString('base64url');
-            playUrl = `/api/proxy?headers=${encodeURIComponent(headerToken)}&url=${encodeURIComponent(playUrl)}`;
+            playUrl = toProxyUrl(playUrl, resolved.headers);
           }
         } catch { continue; }
       }
