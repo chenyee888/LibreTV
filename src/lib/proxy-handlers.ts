@@ -104,10 +104,14 @@ export async function handleProxyRequest(
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await fetchWithSafeRedirects(targetUrl, {
-        headers,
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-      });
+      // 点播媒体响应体可能持续数十秒（尤其是 4K 分片）。
+      // 只限制等待响应头的时间；拿到响应后继续流式传输，直到客户端断开，
+      // 避免原先 8 秒的 AbortSignal 在下载分片过程中切断连接并触发播放器退避重试。
+      const result = await fetchWithSafeRedirects(
+        targetUrl,
+        { headers, signal: req.signal },
+        { headerTimeoutMs: TIMEOUT_MS }
+      );
       response = result.res;
       finalUrl = result.finalUrl;
       lastError = null;
