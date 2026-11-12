@@ -20,7 +20,7 @@ describe('4K-only Spider line selection', () => {
 });
 
 describe('Gulu selected upstream lines', () => {
-  it.each(['JD4K', 'newxfyun', 'NB4K', 'qsvip'])('keeps requested line: %s', label => {
+  it.each(['JD4K', 'newxfyun', 'NB4K', 'qsvip', 'CO4K', '4K超清'])('keeps requested line: %s', label => {
     expect(isAllowedGuluLine(label)).toBe(true);
   });
   it.each(['pylg', 'KZNB', 'covip', 'rose', 'youku', 'bfzym3u8'])('rejects other line: %s', label => {

@@ -271,10 +271,13 @@ export function isAllowedOrangeLine(label: string): boolean {
   return ['jd4k', 'sh4k', 'qsvip'].includes(normalized);
 }
 
-/** 咕噜只保留用户指定的四条上游线路。 */
+/** 咕噜只保留用户指定的四条上游线路，或明确标注为 4K / UHD / 2160p 的线路。
+ *  上游实际提供的 CO4K 等 4K 线路此前被白名单拦在详情页之外，导致大量影片
+ *  详情报错“没有用户指定的线路”；普通线路（pylg / covip / NBY 等）仍被拒绝。 */
 export function isAllowedGuluLine(label: string): boolean {
   const normalized = label.replace(/[\s_-]+/g, '').toLowerCase();
-  return ['jd4k', 'newxfyun', 'nb4k', 'qsvip'].includes(normalized);
+  if (['jd4k', 'newxfyun', 'nb4k', 'qsvip'].includes(normalized)) return true;
+  return is4kLineLabel(label);
 }
 
 /** 旧格式令牌校验保留作兼容测试；实际线路由上游线路名白名单控制。 */
@@ -449,7 +452,7 @@ class GuluClient {
     }
     const episodeGroups = Array.from(groups.entries()).map(([name, episodes]) => ({ name, episodes }));
     const episodes = episodeGroups[0]?.episodes || [];
-    if(!episodeGroups.length)throw new Error(`咕噜详情没有用户指定的线路（JD4K / newxfyun / NB4K / qsvip）；上游线路：${Array.from(upstreamLineLabels).join('、') || '无'}`);
+    if(!episodeGroups.length)throw new Error(`咕噜详情没有可用线路（仅保留 JD4K / newxfyun / NB4K / qsvip 或明确标注 4K 的线路）；上游线路：${Array.from(upstreamLineLabels).join('、') || '无'}`);
     return {videoInfo:{title,sourceKey:'',sourceName:''},episodes,episodeGroups};
   }
 }
