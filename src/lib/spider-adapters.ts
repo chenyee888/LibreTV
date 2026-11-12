@@ -241,6 +241,26 @@ const GULU_FALLBACK_TEMPLATES: Record<string, string> = {
 };
 
 /**
+ * 咕噜解析器模板候选顺序：运行时模板优先，内置备用模板兜底。
+ * 运行时模板可能挂掉（2026-11-12 实测：咖啡4K 运行时模板 fetch 失败导致
+ * spider-play 502，而备用模板 co4k.1ljx.com 同一令牌 2.6s 即返回有效地址），
+ * 因此主模板请求失败时必须给备用模板一次机会；两者相同时不重复请求。
+ * 返回空数组表示没有任何可用模板（调用方据此报「暂无可用解析器模板」）。
+ */
+export function selectGuluParseTemplates(
+  parserLabel: string | null,
+  templates: Record<string, string>,
+): string[] {
+  if (!parserLabel) return [];
+  const runtime = templates[parserLabel];
+  const fallback = GULU_FALLBACK_TEMPLATES[parserLabel];
+  const out: string[] = [];
+  if (runtime) out.push(runtime);
+  if (fallback && fallback !== runtime) out.push(fallback);
+  return out;
+}
+
+/**
  * Resolve Gulu parser metadata without exposing token contents or parser URLs.
  * An upstream line name is not a parser name; unknown token prefixes must not
  * be guessed from the selected line.
@@ -403,10 +423,8 @@ class GuluClient {
     }
     const diagnostics = getGuluParserDiagnostics(token, this.templates);
     const parserLabel = diagnostics.parserLabel;
-    const template = parserLabel
-      ? (this.templates[parserLabel] || GULU_FALLBACK_TEMPLATES[parserLabel])
-      : undefined;
-    if (!template) {
+    const templates = selectGuluParseTemplates(parserLabel, this.templates);
+    if (!templates.length) {
       throw new Error(
         `咕噜线路 ${selectedLine} 暂无可用解析器模板；令牌前缀：${diagnostics.tokenPrefix}；` +
         `解析器：${parserLabel || '未识别'}；运行时模板名称：${diagnostics.templateNames.join('、') || '无'}`
@@ -414,13 +432,23 @@ class GuluClient {
     }
     const value = token;
     const encodedValue = encodeURIComponent(value).replace(/%20/g, '+').replace(/%3A/gi, ':').replace(/%2C/gi, ',').replace(/%5F/gi, '_').replace(/%2D/gi, '-');
-    const parseUrl = template + encodedValue;
-    const verdict = await checkUpstreamAllowed(parseUrl);
-    if (!verdict.ok) throw new Error(verdict.reason);
-    const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
-    const resolved = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
-    if (!resolved) throw new Error('咕噜解析器没有返回播放地址');
-    return toProxyUrl(resolved, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+    // 主模板请求失败（挂掉/超时/返回异常内容）时按顺序试下一个候选模板，
+    // 全部失败才报错。注意：模板 URL 本身不写进错误信息，避免外泄上游地址。
+    let lastError: unknown = null;
+    for (const template of templates) {
+      const parseUrl = template + encodedValue;
+      const verdict = await checkUpstreamAllowed(parseUrl);
+      if (!verdict.ok) { lastError = new Error(verdict.reason); continue; }
+      try {
+        const text = await getText(parseUrl, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+        const resolved = JSON.parse(text).url || text.match(/"url"\s*:\s*"([^"]+)"/)?.[1] || '';
+        if (!resolved) throw new Error('咕噜解析器没有返回播放地址');
+        return toProxyUrl(resolved, { 'User-Agent': 'Dalvik/2.1.0 (Linux; U; Android 11; Pixel 4)' });
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error('咕噜解析器没有返回播放地址');
   }
 
   async detail(id:string):Promise<VideoDetail>{
