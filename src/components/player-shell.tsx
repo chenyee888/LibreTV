@@ -5,6 +5,12 @@ import Artplayer from 'artplayer';
 import Hls, { type HlsConfig } from 'hls.js';
 
 import { PlaybackRecovery, describeHlsError, isDirectUpstreamUrl } from '@/lib/playback-recovery';
+import {
+  HEVC_UNSUPPORTED_MESSAGE,
+  isHevcCodec,
+  isHevcSupported,
+  isHevcUnsupportedError,
+} from '@/lib/hevc-support';
 import { createHlsLoader } from '@/lib/hls-loader';
 import {
   getVideoPrefetcher,
@@ -160,6 +166,9 @@ export function PlayerShell({
   // 仅当有分片真正进入 MSE buffer 后才视为恢复，错误遮罩才能被清除。
   const mediaHealthyRef = useRef(true);
   const playbackStartedRef = useRef(false);
+  // HEVC 线路在当前浏览器播不了（已给出明确提示）：不再重建 HLS/重试，
+  // 否则 video:error 的自愈重建会把提示冲掉并重新空转一轮
+  const hevcBlockedRef = useRef(false);
   // 起播阶段的 video 元素级错误允许自愈重试一次（重建 hls/MSE）
   const videoErrorRetryUsedRef = useRef(false);
   // 进度恢复每集只执行一次（MANIFEST_PARSED 可能因代理回退再次触发）
@@ -393,7 +402,34 @@ export function PlayerShell({
     hls.loadSource(mediaUrl);
     hls.attachMedia(video);
 
+    /**
+     * HEVC 线路在当前浏览器播不了：停掉重试循环并给明确提示（替代通用解码错误）。
+     * 起播失败直接上错误遮罩；播放中失败走 hint + 换源面板（父级可能提供其他线路）。
+     */
+    const blockHevcPlayback = () => {
+      hevcBlockedRef.current = true;
+      recoveryRef.current?.dispose();
+      hls.destroy();
+      hlsRef.current = null;
+      if (playbackStartedRef.current) {
+        showHint(HEVC_UNSUPPORTED_MESSAGE);
+        propsRef.current.onRequestSwitchSource?.(HEVC_UNSUPPORTED_MESSAGE);
+      } else {
+        setError(HEVC_UNSUPPORTED_MESSAGE);
+      }
+    };
+
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      // 清单已声明编码且全是 HEVC：不用等分片加载失败，直接拦截。
+      // 混合档位（部分 H.264）不拦截——hls.js 会自行挑支持的档位。
+      if (
+        hls.levels.length > 0 &&
+        hls.levels.every((level) => isHevcCodec(level.videoCodec)) &&
+        !isHevcSupported()
+      ) {
+        blockHevcPlayback();
+        return;
+      }
       recoveryRef.current?.markHealthy();
       // master playlist 的档位高度：多码率源在这里就能拿到上限
       const heights = hls.levels
@@ -417,6 +453,22 @@ export function PlayerShell({
     });
 
     hls.on(Hls.Events.ERROR, (_evt, data) => {
+      // HEVC 编码且浏览器不支持：不要重试（重试只会把通用报错再拖几十秒），
+      // 直接给明确提示。注意 bufferAddCodecError 是非致命错误（hls.js 建
+      // SourceBuffer 失败时触发，mimeType 里带实际编码），必须在 fatal
+      // 判断之前拦截，否则会被下面直接 return 掉。
+      const levelVideoCodec =
+        hls.levels[hls.currentLevel]?.videoCodec ?? hls.levels[0]?.videoCodec;
+      if (
+        isHevcUnsupportedError(data.details, {
+          mimeType: data.mimeType,
+          sourceBufferName: data.sourceBufferName,
+          videoCodec: levelVideoCodec,
+        })
+      ) {
+        blockHevcPlayback();
+        return;
+      }
       if (!data.fatal) return;
       const recovery = recoveryRef.current;
       if (!recovery) return;
@@ -467,6 +519,7 @@ export function PlayerShell({
     if (!targetUrl) return;
     mediaHealthyRef.current = true;
     playbackStartedRef.current = false;
+    hevcBlockedRef.current = false;
     videoErrorRetryUsedRef.current = false;
     restoredRef.current = false;
     lastPrefetchEnsureRef.current = 0;
@@ -500,6 +553,7 @@ export function PlayerShell({
     // 初始化每集状态
     mediaHealthyRef.current = true;
     playbackStartedRef.current = false;
+    hevcBlockedRef.current = false;
     videoErrorRetryUsedRef.current = false;
     restoredRef.current = false;
     recoveryRef.current = new PlaybackRecovery();
@@ -654,6 +708,11 @@ export function PlayerShell({
     });
     art.on('video:error', () => {
       mediaHealthyRef.current = false;
+      // HEVC 已确认播不了：不要重建 HLS（会把明确提示冲掉并重新空转一轮）
+      if (hevcBlockedRef.current) {
+        setError(HEVC_UNSUPPORTED_MESSAGE);
+        return;
+      }
       // 起播阶段的 video 元素级错误（MSE/解码偶发失败）：重建一次播放链路自愈，
       // 而不是直接钉死错误遮罩——重建后视频轨重新 append，黑屏有声即可解除
       if (!playbackStartedRef.current && !videoErrorRetryUsedRef.current) {
