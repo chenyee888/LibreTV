@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { guardRequest } from '@/lib/api-guard';
 import { getEnvSources } from '@/lib/env-sources';
+import { getPublicOrigin } from '@/lib/request-origin';
 import { spiderResolvePlay } from '@/lib/spider-adapters';
 
 export const runtime = 'nodejs';
@@ -9,6 +10,10 @@ export const runtime = 'nodejs';
  * Resolve one selected TVBox Spider episode on demand.
  * The returned URL is a same-origin authenticated proxy URL so upstream
  * headers can be applied server-side and HLS child segments inherit them.
+ *
+ * 注意：重定向必须拼公开 origin，不能用 `new URL(proxyUrl, req.url)`——
+ * Netlify 上 req.url 是内部转发地址（main--…netlify.app），拼出的跨站
+ * 307 会让浏览器丢掉 host-only 会话 cookie，代理直接 401，播放黑屏。
  */
 export async function GET(req: Request) {
   const guarded = guardRequest(req);
@@ -29,7 +34,7 @@ export async function GET(req: Request) {
 
   try {
     const proxyUrl = await spiderResolvePlay(source, token);
-    return NextResponse.redirect(new URL(proxyUrl, req.url), {
+    return NextResponse.redirect(new URL(proxyUrl, getPublicOrigin(req)), {
       status: 307,
       headers: { 'Cache-Control': 'no-store' },
     });

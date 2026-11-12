@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { PlaybackRecovery, describeHlsError } from './playback-recovery';
+import { PlaybackRecovery, describeHlsError, isDirectUpstreamUrl } from './playback-recovery';
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -110,5 +110,17 @@ describe('describeHlsError', () => {
     expect(describeHlsError('networkError', 'fragLoadError')).toBe('视频分片加载失败');
     expect(describeHlsError('mediaError', '')).toBe('媒体解码错误');
     expect(describeHlsError('otherError', 'xyz')).toBe('播放错误（xyz）');
+  });
+});
+
+describe('isDirectUpstreamUrl', () => {
+  it('直连上游绝对地址可以走代理回退', () => {
+    expect(isDirectUpstreamUrl('https://example.com/a.m3u8')).toBe(true);
+    expect(isDirectUpstreamUrl('http://example.com/a.m3u8')).toBe(true);
+  });
+  it('站内 API 地址不能包进代理（代理会 400），不走回退', () => {
+    expect(isDirectUpstreamUrl('/api/spider-play?source=spider_gulu&token=abc')).toBe(false);
+    expect(isDirectUpstreamUrl('/api/proxy?url=https%3A%2F%2Fexample.com%2Fa.m3u8')).toBe(false);
+    expect(isDirectUpstreamUrl('')).toBe(false);
   });
 });

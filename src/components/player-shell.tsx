@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Artplayer from 'artplayer';
 import Hls, { type HlsConfig } from 'hls.js';
 
-import { PlaybackRecovery, describeHlsError } from '@/lib/playback-recovery';
+import { PlaybackRecovery, describeHlsError, isDirectUpstreamUrl } from '@/lib/playback-recovery';
 import { createHlsLoader } from '@/lib/hls-loader';
 import {
   getVideoPrefetcher,
@@ -429,7 +429,7 @@ export function PlayerShell({
           // （同源 cookie 鉴权，规避 CORS/防盗链/分片被拒）
           if (
             allowProxyFallback &&
-            !mediaUrl.startsWith('/api/proxy') &&
+            isDirectUpstreamUrl(mediaUrl) &&
             (decision.attempt >= 2 || data.details === 'manifestLoadError')
           ) {
             showHint('直连失败，改用代理重试...');

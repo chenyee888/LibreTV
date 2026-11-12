@@ -133,6 +133,16 @@ export class PlaybackRecovery {
   }
 }
 
+/**
+ * 代理回退只对“直连上游的绝对地址”有意义（CORS/防盗链/分片被拒时改走同源代理）。
+ * 站内 API 地址（/api/spider-play、/api/proxy）包进 /api/proxy?url=… 后，
+ * 代理会把相对地址判为无效 URL（400），永远成功不了，只会白白烧掉重试次数、
+ * 把真正的错误提示再往后拖几十秒。
+ */
+export function isDirectUpstreamUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url);
+}
+
 /** hls 错误 → 中文提示（用于 hint 浮层 / toast） */
 export function describeHlsError(type: string, details: string): string {
   if (HARD_FAIL_DETAILS.has(details)) return '播放列表格式无法解析';
