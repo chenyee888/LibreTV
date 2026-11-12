@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { guardRequest, jsonError } from '@/lib/api-guard';
 import { checkLiveUrlAllowed, isBlockedByDNS, isValidProxyUrl } from '@/lib/ssrf';
 import { fetchWithSafeRedirects } from '@/lib/fetch-utils';
-import { rewriteM3u8, LIVE_STREAM_BASE, PROXY_BASE, isM3u8Url } from '@/lib/m3u8';
+import { rewriteM3u8, LIVE_STREAM_BASE, PROXY_BASE, isM3u8Url, looksLikeM3u8 } from '@/lib/m3u8';
 
 /**
  * 代理目标地址的两种传入形式：
@@ -133,8 +133,30 @@ export async function handleProxyRequest(
     isM3u8Url(targetUrl);
 
   // m3u8 文本：重写为代理地址（以重定向后的最终 URL 为 base 解析相对地址）
+  // 注意：URL 以 .m3u8 结尾不等于响应就是清单——上游出错时常返回 403/402 的
+  // HTML/纯文本报错页；不加判断就重写，播放器拿到的是“每行都被包成代理地址”
+  // 的垃圾清单，只能报「格式无法解析」，真正的上游状态码反而被藏起来。
+  // 先验状态码与内容，失败时直接返回 JSON 错误（播放器报「加载失败」）。
   if (isM3u8) {
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: `上游播放列表请求失败：${response.status}` },
+        {
+          status: response.status,
+          headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
+        }
+      );
+    }
     const text = await response.text();
+    if (!looksLikeM3u8(text)) {
+      return NextResponse.json(
+        { error: '上游返回的不是播放列表' },
+        {
+          status: 502,
+          headers: { 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' },
+        }
+      );
+    }
     const headerToken = new URL(req.url).searchParams.get('headers');
     const proxyPrefix = headerToken
       ? `/api/proxy?headers=${encodeURIComponent(headerToken)}&url=`
@@ -145,6 +167,11 @@ export async function handleProxyRequest(
         'Content-Type': 'application/vnd.apple.mpegurl',
         'Cache-Control': 'no-store',
         'Access-Control-Allow-Origin': '*',
+        // Netlify 的边缘缓存键默认不含 url 查询参数：不同目标地址会命中
+        // 同一条缓存（实测：分片响应被当成清单返回给所有源）。no-store 已
+        // 让本响应绕过缓存；再显式声明按完整查询串区分，避免将来放开
+        // 缓存时重蹈覆辙。
+        'Netlify-Vary': 'query',
       },
     });
   }
@@ -156,11 +183,11 @@ export async function handleProxyRequest(
     if (v) outHeaders.set(name, v);
   }
   // fetch 会自动解压，转发时必须去掉长度相关头避免浏览器二次解压
-  // 图片基本不变：长缓存交给浏览器与边缘 CDN（分片 / key 仍保守 1 小时）
-  outHeaders.set(
-    'Cache-Control',
-    contentType.startsWith('image/') ? 'public, max-age=2592000' : 'public, max-age=3600'
-  );
+  // 透传内容一律不缓存：见上——Netlify 缓存键不含 url 查询参数，任何一条
+  // public 缓存都会被所有代理目标共用（分片冒充清单、封面串台），
+  // 必须 no-store；浏览器侧 hls.js 自带分片缓冲，封面重拉成本可忽略。
+  outHeaders.set('Cache-Control', 'no-store');
+  outHeaders.set('Netlify-Vary', 'query');
   outHeaders.set('Access-Control-Allow-Origin', '*');
 
   return new NextResponse(response.body, {
@@ -235,13 +262,22 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
 
   // HLS manifest：重写变体/分片地址指向本路由，保证后续请求同源同鉴权。
   // 关键：以重定向后的最终 URL 为 base 解析相对地址（gslb 调度源 302 后路径会变）
+  // 与点播代理同一条防线：上游 200 但内容不是清单（如错误页）时不重写，
+  // 否则播放器拿到垃圾清单（非 2xx 已在上方拦截）。
   if (isM3u8) {
     const text = await response.text();
+    if (!looksLikeM3u8(text)) {
+      return NextResponse.json(
+        { error: '上游返回的不是播放列表' },
+        { status: 502, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
     return new NextResponse(rewriteM3u8(text, finalUrl, 0, LIVE_STREAM_BASE), {
       status: response.status,
       headers: {
         'Content-Type': 'application/vnd.apple.mpegurl',
         'Cache-Control': 'no-store',
+        'Netlify-Vary': 'query',
       },
     });
   }
@@ -251,6 +287,7 @@ export async function handleLiveStreamRequest(req: Request, targetUrl: string): 
   const ct = contentType || 'video/mp2t';
   outHeaders.set('Content-Type', ct);
   outHeaders.set('Cache-Control', 'no-store, no-transform');
+  outHeaders.set('Netlify-Vary', 'query');
   outHeaders.set('X-Accel-Buffering', 'no');
 
   return new NextResponse(response.body, {

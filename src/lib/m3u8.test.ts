@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { parseM3u8Playlist } from './m3u8-parse';
-import { isProxiedUri, rewriteM3u8, stripAdGroups, stripLeadAdGroup } from './m3u8';
+import { isProxiedUri, looksLikeM3u8, rewriteM3u8, stripAdGroups, stripLeadAdGroup } from './m3u8';
 
 const BASE = 'https://cdn.example.com/live/index.m3u8';
 
@@ -289,5 +289,20 @@ describe('parseM3u8Playlist · 片头广告剔除', () => {
 
     const parsed = await parseM3u8Playlist('https://cdn.example.com/a.m3u8', 0, undefined, { stripLeadAd: false });
     expect(parsed.segments).toHaveLength(2);
+  });
+});
+
+describe('looksLikeM3u8', () => {
+  it('标准清单、带 BOM / 前导空白的清单都认', () => {
+    expect(looksLikeM3u8('#EXTM3U\n#EXT-X-VERSION:3\n')).toBe(true);
+    expect(looksLikeM3u8('\uFEFF#EXTM3U\n#EXTINF:10,\nseg0.ts\n')).toBe(true);
+    expect(looksLikeM3u8('\n\n#EXTM3U\n')).toBe(true);
+  });
+
+  it('上游 403/402 返回的 HTML 报错页、纯文本都不认', () => {
+    expect(looksLikeM3u8('<!doctype html><html lang="zh-CN"><head>')).toBe(false);
+    expect(looksLikeM3u8('Payment required\n\nDEPLOYMENT_DISABLED\n')).toBe(false);
+    expect(looksLikeM3u8('')).toBe(false);
+    expect(looksLikeM3u8('#EXT-X-VERSION:3\n')).toBe(false);
   });
 });

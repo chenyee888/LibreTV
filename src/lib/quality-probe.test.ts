@@ -326,3 +326,18 @@ seg0.ts
     expect(result.height).toBeUndefined();
   });
 });
+
+describe('probeQuality 跳过 Spider 源', () => {
+  it('咕噜/橘汁没有 CMS 列表接口：直接返回「测不出」，不打上游、不报「重定向次数过多」', async () => {
+    mocks.fetchUpstream.mockClear();
+    const gulu: SourceConfig = { key: 'spider_gulu', name: '咕噜', url: 'http://103.45.132.22:19987/app/bn/v2', adapter: 'gulu' };
+    const orange: SourceConfig = { key: 'spider_orange', name: '橘汁', url: 'http://juziapp.hzhcbkj.cn', adapter: 'appdrama' };
+
+    const r1 = await probeQuality({ source: gulu, id: '364312' });
+    const r2 = await probeQuality({ source: orange, id: '120079' });
+    expect(r1).toEqual({ sourceKey: 'spider_gulu', vodId: '364312' });
+    expect(r2).toEqual({ sourceKey: 'spider_orange', vodId: '120079' });
+    // 没有 height 也没有 error：是「未知」，不是探测失败；且一次上游请求都没发
+    expect(mocks.fetchUpstream).not.toHaveBeenCalled();
+  });
+});

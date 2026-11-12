@@ -20,6 +20,15 @@ export function isM3u8Url(url: string): boolean {
   }
 }
 
+/**
+ * 文本是否像播放列表：必须以 #EXTM3U 开头（容忍 BOM 与前导空白）。
+ * 上游出错时常返回 HTML/纯文本报错页（403/402），若不加判断就当清单重写，
+ * 每一行都会被包成代理地址，播放器拿到一份垃圾“清单”而非明确报错。
+ */
+export function looksLikeM3u8(text: string): boolean {
+  return text.replace(/^\uFEFF/, '').trimStart().startsWith('#EXTM3U');
+}
+
 /** URI 已是本站代理地址（新旧两种形式：/api/proxy/…、/api/proxy?url=…、/api/live/stream/…、/api/live/stream?url=…）时不再二次改写 */
 export function isProxiedUri(uri: string): boolean {
   return uri.startsWith('/api/proxy') || uri.startsWith('/api/live/stream');

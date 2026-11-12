@@ -360,6 +360,15 @@ export async function probeQuality(item: QualityProbeItem, signal?: AbortSignal)
   if (!/^https?:\/\//.test(source.url || '') || !/^[\w-]+$/.test(id)) {
     return { ...base, error: '无效的源或影片 ID' };
   }
+
+  // Spider 源（咕噜/橘汁）没有 Apple CMS 列表接口：?ac=videolist 返回 400，
+  // 详情页 fallback 又会 302 循环进登录页（每次换 jsessionid），最终只会
+  // 得到「重定向次数过多」。画质只能等播放后由实测回填，这里直接返回
+  // 「测不出」（无 error），不要报成探测失败，也不要继续空打上游。
+  if (source.adapter === 'gulu' || source.adapter === 'appdrama') {
+    return base;
+  }
+
   const verdict = await checkUpstreamAllowed(source.url);
   if (!verdict.ok) return { ...base, error: verdict.reason };
 
